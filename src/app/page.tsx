@@ -7,7 +7,7 @@ import {
   ShoppingBag, 
   Clock, 
   MapPin, 
-  Instagram, 
+  Camera, 
   MessageCircle, 
   Star, 
   ChevronRight,

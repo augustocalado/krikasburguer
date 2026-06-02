@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Instagram, MessageCircle, MapPin, Clock, Home, ShoppingBag, User } from 'lucide-react'
+import { Camera, MessageCircle, MapPin, Clock, Home, ShoppingBag, User } from 'lucide-react'
 
 export function Footer() {
   return (
@@ -17,7 +17,7 @@ export function Footer() {
               </p>
               <div className="flex items-center gap-4">
                 <button className="w-12 h-12 bg-white/5 hover:bg-red-600 rounded-xl flex items-center justify-center transition-all border border-white/10 group">
-                  <Instagram className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 </button>
                 <button className="w-12 h-12 bg-white/5 hover:bg-emerald-600 rounded-xl flex items-center justify-center transition-all border border-white/10 group">
                   <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
