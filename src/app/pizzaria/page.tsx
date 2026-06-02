@@ -58,6 +58,7 @@ export default function PizzariaPage() {
   const [selectedFlavors, setSelectedFlavors] = useState<any[]>([])
   const [flavorSearch, setFlavorSearch] = useState('')
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
+  const [formData, setFormData] = useState({ name: '', address: '' })
 
   const filteredFlavors = FLAVORS.filter(f => 
     f.name.toLowerCase().includes(flavorSearch.toLowerCase())
