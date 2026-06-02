@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  MANAGER
+  EMPLOYEE
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+model Company {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  logoUrl       String?
+  primaryColor  String    @default("#E11D48")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Settings
+  address       String?
+  phone         String?
+  instagram     String?
+  
+  // Relations
+  users         User[]
+  categories    Category[]
+  products      Product[]
+  orders        Order[]
+  whatsapp      WhatsAppInstance?
+  customers     Customer[]
+
+  @@index([slug])
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(EMPLOYEE)
+  companyId     String?
+  company       Company?  @relation(fields: [companyId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([companyId])
+}
+
+model Category {
+  id            String    @id @default(uuid())
+  name          String
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+  products      Product[]
+  order         Int       @default(0)
+  active        Boolean   @default(true)
+
+  @@index([companyId])
+}
+
+model Product {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?
+  price         Decimal   @db.Decimal(10, 2)
+  imageUrl      String?
+  active        Boolean   @default(true)
+  
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id])
+  
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+
+  variations    ProductVariation[]
+  complements   ProductComplement[]
+  orderItems    OrderItem[]
+
+  @@index([categoryId])
+  @@index([companyId])
+}
+
+model ProductVariation {
+  id            String    @id @default(uuid())
+  name          String
+  price         Decimal   @db.Decimal(10, 2)
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model ProductComplement {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?
+  price         Decimal   @db.Decimal(10, 2)
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Customer {
+  id            String    @id @default(uuid())
+  name          String
+  phone         String
+  email         String?
+  
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+  
+  orders        Order[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([phone, companyId])
+  @@index([companyId])
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  shortId       Int         @default(autoincrement())
+  status        OrderStatus @default(PENDING)
+  total         Decimal     @db.Decimal(10, 2)
+  
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id])
+  
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  
+  items         OrderItem[]
+  
+  // Delivery info
+  deliveryType  String      // DELIVERY, PICKUP
+  address       String?
+  paymentMethod String      // PIX, CREDIT_CARD, CASH
+  paymentStatus String      @default("PENDING") // PENDING, PAID, FAILED
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([companyId])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id            String    @id @default(uuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  productId     String
+  product       Product   @relation(fields: [productId], references: [id])
+  
+  quantity      Int
+  price         Decimal   @db.Decimal(10, 2)
+  notes         String?
+  
+  @@index([orderId])
+}
+
+model WhatsAppInstance {
+  id            String    @id @default(uuid())
+  name          String    // Instance name in Evolution API
+  token         String    // Instance token
+  status        String    @default("DISCONNECTED")
+  
+  companyId     String    @unique
+  company       Company   @relation(fields: [companyId], references: [id])
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}

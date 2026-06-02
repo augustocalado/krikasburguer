@@ -1,0 +1,87 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id          String      @id @default(cuid())
+  name        String
+  description String?     @db.Text
+  price       Decimal     @db.Decimal(10, 2)
+  image       String?     @db.Text
+  status      String      @default("Ativo") // Ativo, Esgotado, Pausado
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  addons      AddonGroup[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model AddonGroup {
+  id         String   @id @default(cuid())
+  name       String
+  required   Boolean  @default(false)
+  min        Int      @default(0)
+  max        Int      @default(1)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  options    AddonOption[]
+}
+
+model AddonOption {
+  id           String     @id @default(cuid())
+  name         String
+  price        Decimal    @db.Decimal(10, 2)
+  addonGroupId String
+  addonGroup   AddonGroup @relation(fields: [addonGroupId], references: [id])
+}
+
+model Order {
+  id            String   @id @default(cuid())
+  customerName  String
+  customerPhone String
+  address       String   @db.Text
+  neighborhood  String
+  deliveryFee   Decimal  @db.Decimal(10, 2)
+  items         Json     // Array de objetos do pedido
+  total         Decimal  @db.Decimal(10, 2)
+  paymentMethod String   // Pix, Cartão, Dinheiro
+  status        String   @default("Pendente") // Pendente, Em Preparo, A Caminho, Entregue, Cancelado
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  address   String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Settings {
+  id            String   @id @default("config")
+  storeName     String   @default("KrikasBurguer")
+  whatsapp      String?
+  openingHours  Json?
+  deliveryFees  Json?    // Objeto com bairros e taxas
+  primaryColor  String   @default("#EF4444")
+  logoUrl       String?  @db.Text
+  updatedAt     DateTime @updatedAt
+}
