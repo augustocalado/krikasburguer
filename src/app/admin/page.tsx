@@ -4,10 +4,10 @@ import { DollarSign, ShoppingBag, TrendingUp, Users } from 'lucide-react'
 
 export default function AdminDashboard() {
   const stats = [
-    { name: 'Vendas Hoje', value: 'R$ 1.240,00', icon: DollarSign, change: '+12%', changeType: 'positive' },
-    { name: 'Pedidos Hoje', value: '45', icon: ShoppingBag, change: '+5%', changeType: 'positive' },
-    { name: 'Novos Clientes', value: '12', icon: Users, change: '-2%', changeType: 'negative' },
-    { name: 'Ticket Médio', value: 'R$ 27,55', icon: TrendingUp, change: '+8%', changeType: 'positive' },
+    { name: 'Vendas Hoje', value: 'R$ 0,00', icon: DollarSign, change: '0%', changeType: 'neutral' },
+    { name: 'Pedidos Hoje', value: '0', icon: ShoppingBag, change: '0%', changeType: 'neutral' },
+    { name: 'Novos Clientes', value: '0', icon: Users, change: '0%', changeType: 'neutral' },
+    { name: 'Ticket Médio', value: 'R$ 0,00', icon: TrendingUp, change: '0%', changeType: 'neutral' },
   ]
 
   return (
@@ -21,7 +21,9 @@ export default function AdminDashboard() {
                 <stat.icon className="w-6 h-6" />
               </div>
               <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${
-                stat.changeType === 'positive' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                stat.changeType === 'positive' ? 'bg-emerald-50 text-emerald-600' : 
+                stat.changeType === 'negative' ? 'bg-red-50 text-red-600' :
+                'bg-slate-100 text-slate-500'
               }`}>
                 {stat.change}
               </span>
@@ -39,19 +41,8 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Últimos Pedidos</h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-              <div>
-                <p className="font-bold text-slate-900">#1024 - João Silva</p>
-                <p className="text-sm text-slate-500">2x Krikas Premium, 1x Coca-Cola</p>
-              </div>
-              <span className="bg-amber-100 text-amber-700 text-xs font-bold px-3 py-1 rounded-full uppercase">Preparando</span>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-              <div>
-                <p className="font-bold text-slate-900">#1023 - Maria Fernanda</p>
-                <p className="text-sm text-slate-500">1x Combo Casal</p>
-              </div>
-              <span className="bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full uppercase">Entregue</span>
+            <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-100 border-dashed">
+              Nenhum pedido recebido ainda.
             </div>
           </div>
         </div>
