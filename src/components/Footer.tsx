@@ -33,6 +33,7 @@ export function Footer({ settings = {} }: { settings?: any }) {
               <p className="text-slate-400 text-lg leading-relaxed max-w-md">
                 Criando experiências gastronômicas únicas através do verdadeiro hambúrguer artesanal. Sabor, qualidade e paixão em cada mordida.
               </p>
+              <div className="flex items-center gap-4 pt-4">
                 <button className="w-12 h-12 bg-white/5 hover:bg-red-600 rounded-xl flex items-center justify-center transition-all border border-white/10 group">
                   <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 </button>
