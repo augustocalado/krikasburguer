@@ -22,7 +22,7 @@ export default function MenuPage() {
     async function loadMenu() {
       const supabase = createClient()
       const [catRes, prodRes] = await Promise.all([
-        supabase.from('categories').select('*').order('created_at', { ascending: true }),
+        supabase.from('categories').select('*').order('sort_order', { ascending: true }),
         supabase.from('products').select('*').order('created_at', { ascending: false })
       ])
       if (catRes.data) setCategories(catRes.data)

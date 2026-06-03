@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit2, Trash2, Loader2, Image as ImageIcon, DollarSign } from 'lucide-react'
+import { Plus, Trash2, Loader2, Image as ImageIcon, UploadCloud, GripVertical } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { Reorder } from 'framer-motion'
 
 export default function AdminCardapio() {
   const [categories, setCategories] = useState<any[]>([])
@@ -13,6 +14,7 @@ export default function AdminCardapio() {
   const [isAddingCategory, setIsAddingCategory] = useState(false)
 
   const [isAddingProduct, setIsAddingProduct] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -31,7 +33,7 @@ export default function AdminCardapio() {
   async function fetchData() {
     setLoading(true)
     const [catRes, prodRes] = await Promise.all([
-      supabase.from('categories').select('*').order('created_at', { ascending: true }),
+      supabase.from('categories').select('*').order('sort_order', { ascending: true }),
       supabase.from('products').select('*').order('created_at', { ascending: false })
     ])
     
@@ -40,12 +42,20 @@ export default function AdminCardapio() {
     setLoading(false)
   }
 
+  // ==== CATEGORIAS ====
   async function handleAddCategory(e: React.FormEvent) {
     e.preventDefault()
     if (!newCategoryName) return
     setIsAddingCategory(true)
     
-    const { data, error } = await supabase.from('categories').insert([{ name: newCategoryName }]).select()
+    // Pega o maior sort_order atual e soma 1
+    const nextOrder = categories.length > 0 ? Math.max(...categories.map(c => c.sort_order || 0)) + 1 : 0
+    
+    const { data, error } = await supabase.from('categories').insert([{ 
+      name: newCategoryName,
+      sort_order: nextOrder 
+    }]).select()
+    
     if (data) setCategories([...categories, data[0]])
     
     setNewCategoryName('')
@@ -58,6 +68,48 @@ export default function AdminCardapio() {
     fetchData()
   }
 
+  // ==== DRAG AND DROP (CATEGORIAS) ====
+  async function handleReorderCategories(newOrder: any[]) {
+    // Atualiza a tela imediatamente para ficar responsivo
+    setCategories(newOrder)
+
+    // Prepara a lista de atualizações no banco de dados
+    const updates = newOrder.map((cat, index) => ({
+      ...cat,
+      sort_order: index
+    }))
+
+    // Envia tudo pro Supabase (o upsert é usado para atualizar múltiplas linhas de uma vez)
+    await supabase.from('categories').upsert(updates)
+  }
+
+  // ==== UPLOAD DE IMAGEM ====
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingImage(true)
+    
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
+    const filePath = `${fileName}`
+
+    // Faz o upload pro bucket "products"
+    const { error } = await supabase.storage.from('products').upload(filePath, file)
+    
+    if (error) {
+      alert('Erro ao enviar imagem. Verifique se você rodou o código SQL no Supabase!')
+      console.error(error)
+    } else {
+      // Pega o link público da foto recém enviada
+      const { data } = supabase.storage.from('products').getPublicUrl(filePath)
+      setProductForm({ ...productForm, image_url: data.publicUrl })
+    }
+    
+    setUploadingImage(false)
+  }
+
+  // ==== PRODUTOS ====
   async function handleAddProduct(e: React.FormEvent) {
     e.preventDefault()
     setIsAddingProduct(true)
@@ -75,6 +127,9 @@ export default function AdminCardapio() {
       setProducts([data[0], ...products])
       setIsAddingProduct(false)
       setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
+    } else if (error) {
+      alert('Erro ao cadastrar: ' + error.message)
+      setIsAddingProduct(false)
     }
   }
 
@@ -95,16 +150,16 @@ export default function AdminCardapio() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-32">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-black text-slate-900">Gestão do Cardápio</h2>
-          <p className="text-slate-500 text-sm mt-1">Crie categorias e adicione seus lanches com cálculo de CMV.</p>
+          <p className="text-slate-500 text-sm mt-1">Cadastre os lanches, faça upload das fotos e arraste as categorias para ordenar.</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Painel Esquerdo: Categorias */}
+        {/* Painel Esquerdo: Categorias com Drag & Drop */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Categorias</h3>
@@ -124,16 +179,23 @@ export default function AdminCardapio() {
             </form>
 
             <div className="space-y-2">
-              {categories.map(cat => (
-                <div key={cat.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-sm font-bold text-slate-700">{cat.name}</span>
-                  <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-500 p-1 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
+              <Reorder.Group axis="y" values={categories} onReorder={handleReorderCategories} className="space-y-2">
+                {categories.map(cat => (
+                  <Reorder.Item key={cat.id} value={cat} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-grab active:cursor-grabbing shadow-sm bg-white">
+                    <div className="flex items-center gap-3">
+                      <GripVertical className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm font-bold text-slate-700">{cat.name}</span>
+                    </div>
+                    <button onClick={() => handleDeleteCategory(cat.id)} className="text-red-500 p-1 hover:bg-red-50 rounded-lg transition-colors cursor-pointer">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </Reorder.Item>
+                ))}
+              </Reorder.Group>
+              
               {categories.length === 0 && <p className="text-xs text-slate-400 text-center py-4">Nenhuma categoria criada.</p>}
             </div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center mt-4">Pressione e arraste para ordenar</p>
           </div>
         </div>
 
@@ -159,13 +221,28 @@ export default function AdminCardapio() {
                   <label className="block text-xs font-bold text-slate-500 mb-1">Descrição</label>
                   <textarea value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-red-600 text-slate-900 h-20" placeholder="Ingredientes e detalhes..." />
                 </div>
+                
+                {/* UPLOAD DE IMAGEM */}
                 <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Link da Foto (URL)</label>
-                  <div className="flex gap-2">
-                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200 overflow-hidden flex-shrink-0">
-                      {productForm.image_url ? <img src={productForm.image_url} className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-5 text-slate-400" />}
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Foto do Lanche</label>
+                  <div className="flex gap-4 items-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200 overflow-hidden flex-shrink-0">
+                      {uploadingImage ? (
+                        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                      ) : productForm.image_url ? (
+                        <img src={productForm.image_url} className="w-full h-full object-cover" />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-slate-400" />
+                      )}
                     </div>
-                    <input type="url" value={productForm.image_url} onChange={e => setProductForm({...productForm, image_url: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-red-600 text-slate-900" placeholder="https://..." />
+                    
+                    <div className="flex-1">
+                      <label className="w-full bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 hover:border-red-400 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors">
+                        <UploadCloud className="w-5 h-5 text-slate-500 mb-1" />
+                        <span className="text-xs font-bold text-slate-600">Clique para escolher do PC/Celular</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -191,7 +268,7 @@ export default function AdminCardapio() {
                   </div>
                 </div>
               </div>
-              <button disabled={isAddingProduct || categories.length === 0} className="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors disabled:opacity-50 mt-4 flex items-center justify-center">
+              <button disabled={isAddingProduct || categories.length === 0 || uploadingImage} className="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors disabled:opacity-50 mt-4 flex items-center justify-center">
                 {isAddingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cadastrar Produto'}
               </button>
             </form>
@@ -202,8 +279,8 @@ export default function AdminCardapio() {
             <h3 className="text-lg font-bold text-slate-900">Seus Produtos ({products.length})</h3>
             {products.map(prod => (
               <div key={prod.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0">
-                  {prod.image_url ? <img src={prod.image_url} className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-slate-300 m-5" />}
+                <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex-shrink-0 flex items-center justify-center">
+                  {prod.image_url ? <img src={prod.image_url} className="w-full h-full object-cover" /> : <span className="text-2xl">🍔</span>}
                 </div>
                 <div className="flex-1">
                   <h4 className="font-bold text-slate-900">{prod.name}</h4>
