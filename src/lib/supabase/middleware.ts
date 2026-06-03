@@ -34,12 +34,21 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Se o usuário não estiver logado e tentar acessar a rota /admin,
-  // nós o redirecionamos para /login
-  if (!user && request.nextUrl.pathname.startsWith('/admin')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  // Checagem de rotas Master/Admin
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    // Se não estiver logado, redireciona para login
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+    
+    // Se estiver logado mas não for o Master, redireciona para o painel de clientes
+    if (user.email !== 'augustocalado22@gmail.com') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/pedidos'
+      return NextResponse.redirect(url)
+    }
   }
 
   return supabaseResponse

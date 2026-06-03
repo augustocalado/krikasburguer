@@ -31,7 +31,11 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/pedidos') // Redireciona para o painel de pedidos ou perfil
+    if (email === 'augustocalado22@gmail.com') {
+      router.push('/admin')
+    } else {
+      router.push('/pedidos') // Redireciona para o painel de pedidos ou perfil
+    }
     router.refresh()
   }
 
