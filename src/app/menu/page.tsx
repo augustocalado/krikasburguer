@@ -1,135 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Minus, X, Search, ArrowLeft, MessageCircle, Home as HomeIcon, UtensilsCrossed, ClipboardList } from 'lucide-react'
+import { Plus, Minus, X, Search, ArrowLeft, MessageCircle, Home as HomeIcon, UtensilsCrossed, ClipboardList, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-
-const CATEGORIES = [
-  { id: 'destaque', name: 'Destaque', icon: '⭐' },
-  { id: 'hamburguer', name: 'Hambúrguer', icon: '🍔' },
-  { id: 'combos', name: 'Combos', icon: '🎁' },
-  { id: 'smashs', name: 'Smashs', icon: '💥' },
-  { id: 'bebidas', name: 'Bebidas', icon: '🥤' },
-  { id: 'sobremesa', name: 'Sobremesa', icon: '🍦' },
-]
-
-const PRODUCTS = [
-  {
-    id: '1',
-    categoryId: 'destaque',
-    name: 'Pito Smash Burguer c/ Queijo + Molho Extra Grátis',
-    description: 'Delicioso Pito Smash Burguer com Hamburguer de 70g, Queijo Prato Derretido no Pão de Brioche e Molho Extra Grátis a sua Escolha.',
-    price: 15.33,
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
-    addonGroups: [
-      {
-        name: 'Escolha sua maionese',
-        required: true,
-        options: [
-          { name: 'Maionese verde da casa', price: 0, image: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=100&q=80' },
-          { name: 'Maionese de alho', price: 0, image: 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=100&q=80' }
-        ]
-      }
-    ]
-  },
-  {
-    id: '1b',
-    categoryId: 'destaque',
-    name: 'Especial Krikas Cheddar Bacon',
-    description: 'Hambúrguer 150g, muito cheddar cremoso e fatias crocantes de bacon defumado.',
-    price: 32.90,
-    image: 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=400&q=80',
-  },
-  {
-    id: '2',
-    categoryId: 'hamburguer',
-    name: 'Krikas Premium 160g',
-    description: 'Hambúrguer artesanal 160g, Cheddar duplo, Bacon Crocante e Maionese no Pão Brioche Tostado.',
-    price: 29.90,
-    image: 'https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=400&q=80',
-  },
-  {
-    id: '2b',
-    categoryId: 'hamburguer',
-    name: 'Clássico Salada',
-    description: 'Hambúrguer 140g, Queijo, Alface, Tomate, Cebola Roxa e Picles.',
-    price: 24.90,
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
-  },
-  {
-    id: '3',
-    categoryId: 'combos',
-    name: 'Combo - Pito Smash Burguer c/ Queijo + Coca 350ml',
-    description: 'O clássico Smash acompanhado de uma Coca-Cola geladinha. A escolha perfeita!',
-    price: 19.90,
-    image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400&q=80',
-  },
-  {
-    id: '3b',
-    categoryId: 'combos',
-    name: 'Combo Família - 4 Smashs + Batata G + Refri 2L',
-    description: 'Tudo o que sua família precisa para uma noite épica.',
-    price: 89.90,
-    image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=400&q=80',
-  },
-  {
-    id: '4',
-    categoryId: 'smashs',
-    name: 'Smash Duplo 140g',
-    description: 'Dois blends de 70g, queijo cheddar duplo e pão brioche.',
-    price: 22.90,
-    image: 'https://images.unsplash.com/photo-1510709638350-ef2b1cbdcc91?w=400&q=80',
-  },
-  {
-    id: '4b',
-    categoryId: 'smashs',
-    name: 'Smash Onion 70g',
-    description: 'Blend 70g com cebola picadinha na chapa e queijo cheddar.',
-    price: 14.90,
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80',
-  },
-  {
-    id: '5',
-    categoryId: 'bebidas',
-    name: 'Coca-Cola 350ml',
-    description: 'Lata 350ml bem gelada.',
-    price: 6.00,
-    image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=400&q=80',
-  },
-  {
-    id: '5b',
-    categoryId: 'bebidas',
-    name: 'Guaraná Antarctica 350ml',
-    description: 'O original sabor do Brasil. Lata 350ml.',
-    price: 5.50,
-    image: 'https://images.unsplash.com/photo-1629203851022-39ca693d7c35?w=400&q=80',
-  },
-  {
-    id: '6',
-    categoryId: 'sobremesa',
-    name: 'Pudim de Leite Condensado',
-    description: 'Pudim caseiro com calda de caramelo.',
-    price: 12.00,
-    image: 'https://images.unsplash.com/photo-1528975604071-b4dc52a2d18c?w=400&q=80',
-  },
-  {
-    id: '6b',
-    categoryId: 'sobremesa',
-    name: 'Brownie com Sorvete',
-    description: 'Brownie de chocolate belga acompanhado de sorvete de baunilha.',
-    price: 18.00,
-    image: 'https://images.unsplash.com/photo-1564355808539-22fda35bcd36?w=400&q=80',
-  }
-]
+import { createClient } from '@/lib/supabase/client'
 
 export default function MenuPage() {
+  const [categories, setCategories] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
   const [cart, setCart] = useState<any[]>([])
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [itemQuantity, setItemQuantity] = useState(1)
   const [selectedAddons, setSelectedAddons] = useState<any>({})
   const [formData, setFormData] = useState({ name: '', address: '', phone: '', paymentMethod: 'Pix', change: '' })
+
+  useEffect(() => {
+    async function loadMenu() {
+      const supabase = createClient()
+      const [catRes, prodRes] = await Promise.all([
+        supabase.from('categories').select('*').order('created_at', { ascending: true }),
+        supabase.from('products').select('*').order('created_at', { ascending: false })
+      ])
+      if (catRes.data) setCategories(catRes.data)
+      if (prodRes.data) setProducts(prodRes.data)
+      setLoading(false)
+    }
+    loadMenu()
+  }, [])
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0)
@@ -245,7 +146,7 @@ export default function MenuPage() {
       {/* Sticky Category Bar for Mobile/Desktop Navigation */}
       <div className="sticky top-16 bg-white border-b border-slate-100 z-40 overflow-x-auto no-scrollbar shadow-sm">
         <div className="max-w-5xl mx-auto px-4 flex gap-8 h-14 items-center whitespace-nowrap">
-          {CATEGORIES.map((cat) => (
+          {categories.map((cat) => (
             <a 
               key={cat.id} 
               href={`#${cat.id}`}
@@ -258,36 +159,51 @@ export default function MenuPage() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 pt-8">
-        {CATEGORIES.map((category) => {
-          const categoryProducts = PRODUCTS.filter(p => p.categoryId === category.id);
-          if (categoryProducts.length === 0) return null;
-          return (
-            <div key={category.id} id={category.id} className="mb-12 scroll-mt-32">
-              <div className="mb-6">
-                <h2 className="text-xl font-bold text-slate-900">{category.name}</h2>
-                <div className="w-12 h-1 bg-red-600 mt-2" />
-              </div>
-              <div className="grid md:grid-cols-2 gap-x-12 gap-y-4 md:gap-y-8">
-                {categoryProducts.map((product) => (
-                  <div 
-                    key={product.id} 
-                    onClick={() => setSelectedProduct(product)} 
-                    className="flex items-start gap-4 py-4 md:pb-8 border-b border-slate-100 cursor-pointer active:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex-1 space-y-1">
-                      <h3 className="text-[15px] font-medium text-slate-800">{product.name}</h3>
-                      <p className="text-xs text-slate-500 line-clamp-2">{product.description}</p>
-                      <div className="pt-2 text-sm font-medium text-emerald-600">R$ {product.price.toFixed(2).replace('.', ',')}</div>
+        {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center gap-4 text-slate-400">
+            <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+            <p className="font-medium">Carregando cardápio...</p>
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+            <p className="font-medium">Nenhum lanche cadastrado ainda.</p>
+          </div>
+        ) : (
+          categories.map((category) => {
+            const categoryProducts = products.filter(p => p.category_id === category.id);
+            if (categoryProducts.length === 0) return null;
+            return (
+              <div key={category.id} id={category.id} className="mb-12 scroll-mt-32">
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-slate-900">{category.name}</h2>
+                  <div className="w-12 h-1 bg-red-600 mt-2" />
+                </div>
+                <div className="grid md:grid-cols-2 gap-x-12 gap-y-4 md:gap-y-8">
+                  {categoryProducts.map((product) => (
+                    <div 
+                      key={product.id} 
+                      onClick={() => setSelectedProduct(product)} 
+                      className="flex items-start gap-4 py-4 md:pb-8 border-b border-slate-100 cursor-pointer active:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex-1 space-y-1">
+                        <h3 className="text-[15px] font-medium text-slate-800">{product.name}</h3>
+                        <p className="text-xs text-slate-500 line-clamp-2">{product.description}</p>
+                        <div className="pt-2 text-sm font-medium text-emerald-600">R$ {product.price.toFixed(2).replace('.', ',')}</div>
+                      </div>
+                      <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center">
+                        {product.image_url ? (
+                          <img src={product.image_url} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-2xl">🍔</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border border-slate-100">
-                      <img src={product.image} className="w-full h-full object-cover" />
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </main>
 
       {/* Product Modal */}
@@ -305,8 +221,12 @@ export default function MenuPage() {
                 <X className="w-5 h-5 text-slate-900" />
               </button>
 
-              <div className="w-full md:w-1/2 h-64 md:h-auto bg-slate-100 overflow-hidden">
-                <img src={selectedProduct.image} className="w-full h-full object-cover" />
+              <div className="w-full md:w-1/2 h-64 md:h-auto bg-slate-100 overflow-hidden flex items-center justify-center">
+                {selectedProduct.image_url ? (
+                  <img src={selectedProduct.image_url} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-6xl">🍔</span>
+                )}
               </div>
 
               <div className="w-full md:w-1/2 flex flex-col h-full md:max-h-[90vh]">
@@ -396,8 +316,12 @@ export default function MenuPage() {
                     <div className="space-y-6">
                       {cart.map((item, idx) => (
                         <div key={idx} className="flex items-start gap-4 pb-6 border-b border-slate-50 last:border-0">
-                          <div className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
-                            <img src={item.image} className="w-full h-full object-cover" />
+                          <div className="w-16 h-16 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            {item.image_url ? (
+                              <img src={item.image_url} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-2xl">🍔</span>
+                            )}
                           </div>
                           <div className="flex-1">
                             <div className="flex justify-between">
