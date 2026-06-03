@@ -511,14 +511,24 @@ export default function AdminCardapio() {
                     <label className="block text-xs font-bold text-slate-400 mb-1">Preço Venda (R$)</label>
                     <input type="text" required value={productForm.price} onChange={e => setProductForm({...productForm, price: e.target.value})} className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm outline-none font-bold text-emerald-400" placeholder="Ex: 25.00" />
                   </div>
-                  <div className="col-span-2 md:col-span-2 flex items-center justify-between bg-slate-800/50 rounded-lg p-3">
+                  <div className="col-span-2 md:col-span-2 grid grid-cols-2 gap-2 bg-slate-800/50 rounded-lg p-3">
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Custo Receita</p>
+                      <p className="text-sm font-black text-slate-200">R$ {parseFloat(productForm.cost_price || '0').toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">CMV (%)</p>
+                      <p className={`text-sm font-black ${productForm.price && parseFloat(productForm.price) > 0 ? ((parseFloat(productForm.cost_price || '0') / parseFloat(productForm.price)) * 100) <= 35 ? 'text-emerald-400' : 'text-amber-400' : 'text-slate-500'}`}>
+                        {productForm.price && parseFloat(productForm.price) > 0 ? ((parseFloat(productForm.cost_price || '0') / parseFloat(productForm.price)) * 100).toFixed(1) : '0.0'}%
+                      </p>
+                    </div>
                     <div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Lucro Bruto</p>
-                      <p className={`text-lg font-black ${profit > 0 ? 'text-emerald-400' : 'text-red-400'}`}>R$ {profit.toFixed(2)}</p>
+                      <p className={`text-sm font-black ${profit > 0 ? 'text-emerald-400' : 'text-red-400'}`}>R$ {profit.toFixed(2)}</p>
                     </div>
-                    <div className="text-right">
+                    <div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Margem (%)</p>
-                      <p className={`text-lg font-black ${margin > 30 ? 'text-emerald-400' : 'text-amber-400'}`}>{margin.toFixed(1)}%</p>
+                      <p className={`text-sm font-black ${margin >= 40 ? 'text-emerald-400' : 'text-amber-400'}`}>{margin.toFixed(1)}%</p>
                     </div>
                   </div>
                 </div>

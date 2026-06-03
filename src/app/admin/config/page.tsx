@@ -54,7 +54,7 @@ export default function AdminConfig() {
   // Ingredients
   const [ingredients, setIngredients] = useState<any[]>([])
   const [loadingIngs, setLoadingIngs] = useState(true)
-  const [form, setForm] = useState({ name: '', unit: 'un', cost: '' })
+  const [form, setForm] = useState({ name: '', unit: 'un', paidValue: '', packageVolume: '1', correctionFactor: '1.00' })
   const [adding, setAdding] = useState(false)
   const [savingIng, setSavingIng] = useState(false)
 
@@ -179,11 +179,26 @@ export default function AdminConfig() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     setAdding(true)
+    
+    const pv = parseFloat(form.paidValue.replace(',', '.')) || 0
+    const vol = parseFloat(form.packageVolume.replace(',', '.')) || 1
+    const fc = parseFloat(form.correctionFactor.replace(',', '.')) || 1
+    const calculatedCleanCost = (pv / vol) * fc
+
     const { data, error } = await supabase.from('ingredients').insert([{
-      name: form.name, unit: form.unit, cost: parseFloat(form.cost.replace(',', '.'))
+      name: form.name, 
+      unit: form.unit, 
+      paid_value: pv,
+      package_volume: vol,
+      correction_factor: fc,
+      cost: calculatedCleanCost
     }]).select()
+
     if (error) alert('Erro: ' + error.message)
-    else if (data) { setIngredients([...ingredients, data[0]].sort((a, b) => a.name.localeCompare(b.name))); setForm({ name: '', unit: 'un', cost: '' }) }
+    else if (data) { 
+      setIngredients([...ingredients, data[0]].sort((a, b) => a.name.localeCompare(b.name))); 
+      setForm({ name: '', unit: 'un', paidValue: '', packageVolume: '1', correctionFactor: '1.00' }) 
+    }
     setAdding(false)
   }
 
@@ -193,23 +208,29 @@ export default function AdminConfig() {
     setIngredients(ingredients.filter(i => i.id !== id))
   }
 
-  async function handleSaveCost(id: string, cost: string) {
+  async function handleSaveCost(id: string, paidValueStr: string, vol: number, fc: number) {
     setSavingIng(true)
-    await supabase.from('ingredients').update({ cost: parseFloat(cost.replace(',', '.')) }).eq('id', id)
+    const pv = parseFloat(paidValueStr.replace(',', '.')) || 0
+    const calculatedCost = (pv / vol) * fc
+    await supabase.from('ingredients').update({ 
+      paid_value: pv,
+      cost: calculatedCost
+    }).eq('id', id)
+    fetchIngredients()
     setSavingIng(false)
   }
 
   // ==== IMPORTAÇÃO DE EXCEL (INGREDIENTES) ====
   function downloadTemplate() {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['nome', 'unidade', 'custo'],
-      ['Hamburguer 150g', 'un', '3.50'],
-      ['Queijo Cheddar', 'fatia', '1.20'],
-      ['Bacon', 'g', '0.05'],
+      ['nome', 'unidade', 'valor_pago', 'volume_embalagem', 'fc'],
+      ['Hamburguer 150g', 'un', '25.00', '10', '1.00'],
+      ['Cebola Roxa', 'kg', '5.00', '1', '1.11'],
+      ['Queijo Cheddar', 'kg', '45.00', '1', '1.00'],
     ])
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Ingredientes')
-    XLSX.writeFile(wb, 'modelo_ingredientes_krikas.xlsx')
+    XLSX.writeFile(wb, 'modelo_ingredientes_krikas_v2.xlsx')
   }
 
   function handleExcelFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -229,14 +250,18 @@ export default function AdminConfig() {
 
       const errors: string[] = []
       const preview = rows.map((row, i) => {
-        const name = String(row['nome'] || row['Nome'] || row['NOME'] || '').trim()
-        const unidade = String(row['unidade'] || row['Unidade'] || row['UNIDADE'] || 'un').trim()
-        const custo = parseFloat(String(row['custo'] || row['Custo'] || row['CUSTO'] || '0').replace(',', '.'))
+        const name = String(row['nome'] || row['Nome'] || row['NOME'] || row['PRODUTOS'] || '').trim()
+        const unidade = String(row['unidade'] || row['Unidade'] || row['UNIDADE DE MEDIDA'] || 'un').trim()
+        const paid_value = parseFloat(String(row['valor_pago'] || row['Valor Pago'] || row['VALOR PAGO'] || row['VALOR PAGO (R$)'] || '0').replace(',', '.'))
+        const package_volume = parseFloat(String(row['volume_embalagem'] || row['Volume'] || row['VOLUME EMBALAGEM'] || '1').replace(',', '.'))
+        const fc = parseFloat(String(row['fc'] || row['F.C.'] || row['F.C'] || '1').replace(',', '.'))
+
+        const calculatedCost = (paid_value / package_volume) * fc
 
         if (!name) errors.push(`Linha ${i + 2}: Nome em branco`)
-        if (isNaN(custo)) errors.push(`Linha ${i + 2}: Custo inválido`)
+        if (isNaN(paid_value)) errors.push(`Linha ${i + 2}: Valor pago inválido`)
 
-        return { name, unidade, custo, valid: !!name && !isNaN(custo) }
+        return { name, unidade, paid_value, package_volume, fc, cost: calculatedCost, valid: !!name && !isNaN(paid_value) }
       }).filter(r => r.name)
 
       setImportErrors(errors)
@@ -254,7 +279,10 @@ export default function AdminConfig() {
     const toInsert = validRows.map(row => ({
       name: row.name,
       unit: row.unidade,
-      cost: row.custo || 0,
+      paid_value: row.paid_value || 0,
+      package_volume: row.package_volume || 1,
+      correction_factor: row.fc || 1,
+      cost: row.cost || 0,
     }))
 
     const { error } = await supabase.from('ingredients').insert(toInsert)
@@ -543,9 +571,9 @@ export default function AdminConfig() {
                     <p className="font-bold text-slate-800 mb-2">Baixe o modelo da planilha</p>
                     <button onClick={downloadTemplate} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold transition-colors">
                       <Download className="w-4 h-4" />
-                      Baixar modelo_ingredientes_krikas.xlsx
+                      Baixar modelo_ingredientes_krikas_v2.xlsx
                     </button>
-                    <p className="text-xs text-slate-500 mt-2">Colunas: <strong>nome | unidade | custo</strong></p>
+                    <p className="text-xs text-slate-500 mt-2">Colunas: <strong>nome | unidade | valor_pago | volume_embalagem | fc</strong></p>
                   </div>
                 </div>
 
@@ -584,8 +612,9 @@ export default function AdminConfig() {
                         <thead className="bg-slate-50 sticky top-0">
                           <tr>
                             <th className="p-3 text-left font-bold text-slate-500">Nome</th>
-                            <th className="p-3 text-left font-bold text-slate-500">Unidade</th>
-                            <th className="p-3 text-right font-bold text-slate-500">Custo (R$)</th>
+                            <th className="p-3 text-left font-bold text-slate-500">Pago / Vol.</th>
+                            <th className="p-3 text-center font-bold text-slate-500">F.C.</th>
+                            <th className="p-3 text-right font-bold text-slate-500">Custo (Limpo)</th>
                             <th className="p-3 text-center font-bold text-slate-500">OK?</th>
                           </tr>
                         </thead>
@@ -593,8 +622,9 @@ export default function AdminConfig() {
                           {importPreview.map((row, i) => (
                             <tr key={i} className={row.valid ? 'bg-white' : 'bg-red-50'}>
                               <td className="p-3 font-medium text-slate-800">{row.name || '—'}</td>
-                              <td className="p-3 text-slate-600">{row.unidade || '—'}</td>
-                              <td className="p-3 text-right font-bold text-emerald-600">R$ {row.custo?.toFixed(2)}</td>
+                              <td className="p-3 text-slate-600">R$ {row.paid_value?.toFixed(2)} / {row.package_volume} {row.unidade}</td>
+                              <td className="p-3 text-center text-slate-600">{row.fc?.toFixed(2)}</td>
+                              <td className="p-3 text-right font-bold text-emerald-600">R$ {row.cost?.toFixed(2)}</td>
                               <td className="p-3 text-center">
                                 {row.valid ? <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" /> : <XCircle className="w-4 h-4 text-red-500 mx-auto" />}
                               </td>
@@ -632,63 +662,94 @@ export default function AdminConfig() {
             <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
               <Package className="w-5 h-5 text-red-600" /> Adicionar Ingrediente Manualmente
             </h3>
-            <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-6 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Nome</label>
-                <input type="text" required placeholder="Ex: Hamburguer 150g" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Nome</label>
+                <input type="text" required placeholder="Ex: Cebola Roxa" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Unidade</label>
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}>
-                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Valor Pago (R$)</label>
+                <input type="text" required placeholder="Ex: 5.00" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.paidValue} onChange={e => setForm({ ...form, paidValue: e.target.value })} />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Custo (R$)</label>
-                <div className="flex gap-2">
-                  <input type="text" required placeholder="Ex: 2.50" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.cost} onChange={e => setForm({ ...form, cost: e.target.value })} />
-                  <button disabled={adding} className="bg-red-600 text-white px-4 rounded-xl flex items-center justify-center shadow-lg hover:bg-red-700 transition-colors flex-shrink-0">
-                    {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  </button>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider truncate" title="Volume da Embalagem">Vol. Emb.</label>
+                  <input type="text" required placeholder="Ex: 1" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.packageVolume} onChange={e => setForm({ ...form, packageVolume: e.target.value })} />
                 </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Un.</label>
+                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}>
+                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">F.C.</label>
+                <input type="text" required placeholder="Ex: 1.11" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.correctionFactor} onChange={e => setForm({ ...form, correctionFactor: e.target.value })} />
+              </div>
+              <div className="flex items-end">
+                <button disabled={adding} className="w-full bg-red-600 text-white h-[46px] rounded-xl flex items-center justify-center font-bold text-sm shadow-lg hover:bg-red-700 transition-colors">
+                  {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar'}
+                </button>
               </div>
             </form>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-slate-900">Ingredientes Cadastrados ({ingredients.length})</h3>
-              {savingIng && <span className="text-xs text-slate-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Salvando...</span>}
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h3 className="font-bold text-slate-900">Ingredientes e Precificação ({ingredients.length})</h3>
+              {savingIng && <span className="text-xs text-slate-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Atualizando custo...</span>}
             </div>
             {loadingIngs ? (
               <div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-red-600" /></div>
             ) : ingredients.length === 0 ? (
-              <div className="p-10 text-center text-slate-400 text-sm">Nenhum ingrediente cadastrado ainda.</div>
+              <div className="p-10 text-center text-slate-400 text-sm">Nenhum ingrediente cadastrado.</div>
             ) : (
-              <div className="divide-y divide-slate-50">
-                <div className="grid grid-cols-12 px-6 py-3 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  <div className="col-span-5">Ingrediente</div>
-                  <div className="col-span-2 text-center">Unidade</div>
-                  <div className="col-span-3 text-center">Custo (R$)</div>
-                  <div className="col-span-2 text-right">Ação</div>
+              <div className="divide-y divide-slate-100">
+                <div className="grid grid-cols-12 px-6 py-3 bg-white text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100">
+                  <div className="col-span-4">Produto</div>
+                  <div className="col-span-2 text-center">Valor Pago</div>
+                  <div className="col-span-2 text-center">Vol. Emb.</div>
+                  <div className="col-span-1 text-center">F.C.</div>
+                  <div className="col-span-2 text-right">Valor Limpo</div>
+                  <div className="col-span-1 text-right"></div>
                 </div>
                 {ingredients.map(ing => (
-                  <div key={ing.id} className="grid grid-cols-12 px-6 py-4 items-center hover:bg-slate-50/50">
-                    <div className="col-span-5"><p className="font-semibold text-slate-800 text-sm">{ing.name}</p></div>
-                    <div className="col-span-2 text-center"><span className="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-1 rounded-lg">{ing.unit}</span></div>
-                    <div className="col-span-3 flex justify-center">
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-400 text-xs font-bold">R$</span>
+                  <div key={ing.id} className="grid grid-cols-12 px-6 py-3 items-center hover:bg-slate-50/50">
+                    <div className="col-span-4 pr-4">
+                      <p className="font-bold text-slate-800 text-xs line-clamp-1" title={ing.name}>{ing.name}</p>
+                    </div>
+                    
+                    <div className="col-span-2 text-center">
+                      <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1 focus-within:border-red-400">
+                        <span className="text-[10px] text-slate-400 font-bold mr-1">R$</span>
                         <input
                           type="text"
-                          className="w-20 bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-sm text-center text-slate-900 outline-none focus:border-red-600 font-mono"
-                          defaultValue={ing.cost}
-                          onBlur={e => handleSaveCost(ing.id, e.target.value)}
+                          className="w-12 bg-transparent text-xs text-center text-slate-900 outline-none font-mono"
+                          defaultValue={ing.paid_value}
+                          onBlur={e => handleSaveCost(ing.id, e.target.value, ing.package_volume || 1, ing.correction_factor || 1)}
                         />
                       </div>
                     </div>
-                    <div className="col-span-2 flex justify-end">
-                      <button onClick={() => handleDelete(ing.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors">
+
+                    <div className="col-span-2 text-center flex items-center justify-center gap-1">
+                      <span className="text-xs text-slate-600 font-bold">{ing.package_volume}</span>
+                      <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded">{ing.unit}</span>
+                    </div>
+
+                    <div className="col-span-1 text-center">
+                      <span className="text-xs text-slate-600 font-medium">{ing.correction_factor}</span>
+                    </div>
+
+                    <div className="col-span-2 text-right">
+                      <span className="text-sm font-bold text-emerald-600">
+                        <span className="text-[10px] mr-0.5">R$</span>
+                        {ing.cost?.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="col-span-1 flex justify-end">
+                      <button onClick={() => handleDelete(ing.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
