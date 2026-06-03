@@ -1,7 +1,9 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 import { Footer } from '@/components/Footer'
 import { 
   ShoppingBag, 
@@ -21,6 +23,49 @@ import {
 } from 'lucide-react'
 
 export default function LandingPage() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [settings, setSettings] = useState<any>({})
+
+  useEffect(() => {
+    async function loadSettings() {
+      const supabase = createClient()
+      const { data } = await supabase.from('restaurant_settings').select('*')
+      
+      let settingsMap: any = {}
+      if (data) {
+        data.forEach((r: any) => { settingsMap[r.key] = r.value })
+        setSettings(settingsMap)
+      }
+
+      // Check open status
+      let currentlyOpen = false
+      if (settingsMap.is_open_override === 'open') currentlyOpen = true
+      else if (settingsMap.is_open_override === 'closed') currentlyOpen = false
+      else {
+        const now = new Date()
+        const dayKeys = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab']
+        const todayKey = dayKeys[now.getDay()]
+        const hoursStr = settingsMap.business_hours
+        if (hoursStr) {
+          try {
+            const hours = JSON.parse(hoursStr)
+            const todayHours = hours[todayKey]
+            if (todayHours?.open) {
+              const [fromH, fromM] = todayHours.from.split(':').map(Number)
+              const [toH, toM] = todayHours.to.split(':').map(Number)
+              const nowMinutes = now.getHours() * 60 + now.getMinutes()
+              const fromMinutes = fromH * 60 + fromM
+              const toMinutes = toH * 60 + toM
+              if (nowMinutes >= fromMinutes && nowMinutes <= toMinutes) currentlyOpen = true
+            }
+          } catch(e) {}
+        }
+      }
+      setIsOpen(currentlyOpen)
+    }
+    loadSettings()
+  }, [])
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-red-100 selection:text-red-600">
       
@@ -43,13 +88,22 @@ export default function LandingPage() {
             transition={{ duration: 0.8 }}
             className="space-y-6"
           >
-            <div className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl shadow-red-600/20">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-              </span>
-              Loja Aberta • Peça Agora
-            </div>
+            {isOpen ? (
+              <div className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl shadow-red-600/20">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                </span>
+                Loja Aberta • Peça Agora
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 bg-slate-800 text-slate-300 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest shadow-xl">
+                <span className="relative flex h-2 w-2">
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+                Loja Fechada
+              </div>
+            )}
             
             <h1 className="text-5xl md:text-8xl font-black text-white leading-tight tracking-tighter">
               O MELHOR HAMBÚRGUER <br />
@@ -162,7 +216,7 @@ export default function LandingPage() {
       </section>
 
       {/* 4. FOOTER / CONTACT (Reference: Map, social, contact) */}
-      <Footer />
+      <Footer settings={settings} />
 
       <style jsx global>{`
         @keyframes pulse-slow {

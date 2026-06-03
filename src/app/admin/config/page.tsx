@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import {
   Plus, Trash2, Loader2, Package, UploadCloud, Image as ImageIcon,
-  MapPin, Clock, DollarSign, Store, Save, CheckCircle2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight
+  MapPin, Clock, DollarSign, Store, Save, CheckCircle2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, FileSpreadsheet, Download, AlertTriangle, XCircle
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import * as XLSX from 'xlsx'
 
 const UNITS = ['un', 'g', 'kg', 'ml', 'L', 'fatia', 'folha', 'colher']
 
@@ -56,6 +57,13 @@ export default function AdminConfig() {
   const [form, setForm] = useState({ name: '', unit: 'un', cost: '' })
   const [adding, setAdding] = useState(false)
   const [savingIng, setSavingIng] = useState(false)
+
+  // Excel Import for Ingredients
+  const [showImport, setShowImport] = useState(false)
+  const [importPreview, setImportPreview] = useState<any[]>([])
+  const [importErrors, setImportErrors] = useState<string[]>([])
+  const [importing, setImporting] = useState(false)
+  const [importDone, setImportDone] = useState(false)
 
   const supabase = createClient()
 
@@ -189,6 +197,76 @@ export default function AdminConfig() {
     setSavingIng(true)
     await supabase.from('ingredients').update({ cost: parseFloat(cost.replace(',', '.')) }).eq('id', id)
     setSavingIng(false)
+  }
+
+  // ==== IMPORTAÇÃO DE EXCEL (INGREDIENTES) ====
+  function downloadTemplate() {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['nome', 'unidade', 'custo'],
+      ['Hamburguer 150g', 'un', '3.50'],
+      ['Queijo Cheddar', 'fatia', '1.20'],
+      ['Bacon', 'g', '0.05'],
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Ingredientes')
+    XLSX.writeFile(wb, 'modelo_ingredientes_krikas.xlsx')
+  }
+
+  function handleExcelFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImportErrors([])
+    setImportPreview([])
+    setImportDone(false)
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const data = new Uint8Array(ev.target?.result as ArrayBuffer)
+      const wb = XLSX.read(data, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+      const errors: string[] = []
+      const preview = rows.map((row, i) => {
+        const name = String(row['nome'] || row['Nome'] || row['NOME'] || '').trim()
+        const unidade = String(row['unidade'] || row['Unidade'] || row['UNIDADE'] || 'un').trim()
+        const custo = parseFloat(String(row['custo'] || row['Custo'] || row['CUSTO'] || '0').replace(',', '.'))
+
+        if (!name) errors.push(`Linha ${i + 2}: Nome em branco`)
+        if (isNaN(custo)) errors.push(`Linha ${i + 2}: Custo inválido`)
+
+        return { name, unidade, custo, valid: !!name && !isNaN(custo) }
+      }).filter(r => r.name)
+
+      setImportErrors(errors)
+      setImportPreview(preview)
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }
+
+  async function handleImport() {
+    if (importPreview.length === 0) return
+    setImporting(true)
+
+    const validRows = importPreview.filter(r => r.valid)
+    const toInsert = validRows.map(row => ({
+      name: row.name,
+      unit: row.unidade,
+      cost: row.custo || 0,
+    }))
+
+    const { error } = await supabase.from('ingredients').insert(toInsert)
+
+    if (error) {
+      alert('Erro ao importar: ' + error.message)
+    } else {
+      setImportDone(true)
+      setImportPreview([])
+      fetchIngredients()
+    }
+    setImporting(false)
   }
 
   const currentlyOpen = isCurrentlyOpen()
@@ -434,9 +512,125 @@ export default function AdminConfig() {
       {/* ===== ABA INGREDIENTES ===== */}
       {activeTab === 'ingredientes' && (
         <div className="space-y-6">
+
+          <div className="flex flex-col sm:flex-row sm:justify-end">
+            <button
+              onClick={() => { setShowImport(!showImport); setImportDone(false) }}
+              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 transition-colors"
+            >
+              <FileSpreadsheet className="w-5 h-5" />
+              Importar Excel
+            </button>
+          </div>
+
+          {/* ==== PAINEL DE IMPORTAÇÃO ==== */}
+          {showImport && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 bg-emerald-50">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                  Importar Ingredientes do Excel
+                </h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Faça o download do modelo, preencha sua planilha e importe vários ingredientes de uma vez.
+                </p>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-sm font-black flex-shrink-0">1</div>
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 mb-2">Baixe o modelo da planilha</p>
+                    <button onClick={downloadTemplate} className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+                      <Download className="w-4 h-4" />
+                      Baixar modelo_ingredientes_krikas.xlsx
+                    </button>
+                    <p className="text-xs text-slate-500 mt-2">Colunas: <strong>nome | unidade | custo</strong></p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center text-sm font-black flex-shrink-0">2</div>
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 mb-2">Selecione sua planilha preenchida</p>
+                    <label className="flex items-center gap-3 bg-emerald-50 border-2 border-dashed border-emerald-300 hover:border-emerald-500 rounded-xl p-4 cursor-pointer transition-colors">
+                      <UploadCloud className="w-6 h-6 text-emerald-600 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-bold text-emerald-700">Clique para selecionar o arquivo</p>
+                        <p className="text-xs text-emerald-600">Aceita .xlsx e .xls</p>
+                      </div>
+                      <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelFile} />
+                    </label>
+                  </div>
+                </div>
+
+                {importErrors.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1">
+                    <p className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" /> Avisos encontrados ({importErrors.length})
+                    </p>
+                    {importErrors.map((err, i) => <p key={i} className="text-xs text-amber-700">• {err}</p>)}
+                  </div>
+                )}
+
+                {importPreview.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      {importPreview.filter(r => r.valid).length} ingrediente(s) prontos para importar:
+                    </p>
+                    <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-100">
+                      <table className="w-full text-xs">
+                        <thead className="bg-slate-50 sticky top-0">
+                          <tr>
+                            <th className="p-3 text-left font-bold text-slate-500">Nome</th>
+                            <th className="p-3 text-left font-bold text-slate-500">Unidade</th>
+                            <th className="p-3 text-right font-bold text-slate-500">Custo (R$)</th>
+                            <th className="p-3 text-center font-bold text-slate-500">OK?</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {importPreview.map((row, i) => (
+                            <tr key={i} className={row.valid ? 'bg-white' : 'bg-red-50'}>
+                              <td className="p-3 font-medium text-slate-800">{row.name || '—'}</td>
+                              <td className="p-3 text-slate-600">{row.unidade || '—'}</td>
+                              <td className="p-3 text-right font-bold text-emerald-600">R$ {row.custo?.toFixed(2)}</td>
+                              <td className="p-3 text-center">
+                                {row.valid ? <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" /> : <XCircle className="w-4 h-4 text-red-500 mx-auto" />}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <button
+                      onClick={handleImport}
+                      disabled={importing || importPreview.filter(r => r.valid).length === 0}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {importing ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileSpreadsheet className="w-5 h-5" />}
+                      {importing ? 'Importando...' : `Confirmar e Importar ${importPreview.filter(r => r.valid).length} Ingredientes`}
+                    </button>
+                  </div>
+                )}
+
+                {importDone && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <p className="font-bold text-emerald-800">Importação concluída com sucesso!</p>
+                      <p className="text-sm text-emerald-700">Todos os ingredientes foram adicionados à sua ficha técnica.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-red-600" /> Adicionar Ingrediente
+              <Package className="w-5 h-5 text-red-600" /> Adicionar Ingrediente Manualmente
             </h3>
             <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">

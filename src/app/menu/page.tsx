@@ -10,6 +10,8 @@ export default function MenuPage() {
   const [categories, setCategories] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [settings, setSettings] = useState<any>({})
+  const [isOpen, setIsOpen] = useState(false)
 
   const [cart, setCart] = useState<any[]>([])
   const [selectedProduct, setSelectedProduct] = useState<any>(null)
@@ -21,12 +23,45 @@ export default function MenuPage() {
   useEffect(() => {
     async function loadMenu() {
       const supabase = createClient()
-      const [catRes, prodRes] = await Promise.all([
+      const [catRes, prodRes, setRes] = await Promise.all([
         supabase.from('categories').select('*').order('sort_order', { ascending: true }),
-        supabase.from('products').select('*').order('created_at', { ascending: false })
+        supabase.from('products').select('*').order('created_at', { ascending: false }),
+        supabase.from('restaurant_settings').select('*')
       ])
       if (catRes.data) setCategories(catRes.data)
       if (prodRes.data) setProducts(prodRes.data)
+      
+      let settingsMap: any = {}
+      if (setRes.data) {
+        setRes.data.forEach((r: any) => { settingsMap[r.key] = r.value })
+        setSettings(settingsMap)
+      }
+
+      // Check open status
+      let currentlyOpen = false
+      if (settingsMap.is_open_override === 'open') currentlyOpen = true
+      else if (settingsMap.is_open_override === 'closed') currentlyOpen = false
+      else {
+        const now = new Date()
+        const dayKeys = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab']
+        const todayKey = dayKeys[now.getDay()]
+        const hoursStr = settingsMap.business_hours
+        if (hoursStr) {
+          try {
+            const hours = JSON.parse(hoursStr)
+            const todayHours = hours[todayKey]
+            if (todayHours?.open) {
+              const [fromH, fromM] = todayHours.from.split(':').map(Number)
+              const [toH, toM] = todayHours.to.split(':').map(Number)
+              const nowMinutes = now.getHours() * 60 + now.getMinutes()
+              const fromMinutes = fromH * 60 + fromM
+              const toMinutes = toH * 60 + toM
+              if (nowMinutes >= fromMinutes && nowMinutes <= toMinutes) currentlyOpen = true
+            }
+          } catch(e) {}
+        }
+      }
+      setIsOpen(currentlyOpen)
       setLoading(false)
     }
     loadMenu()
@@ -126,18 +161,27 @@ export default function MenuPage() {
       {/* Store Info */}
       <div className="bg-white px-4 pt-6 pb-4 max-w-5xl mx-auto border-b border-slate-50">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full border border-slate-100 shadow-sm overflow-hidden flex-shrink-0">
-            <img src="https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=200&q=80" alt="Logo" className="w-full h-full object-cover" />
+          <div className="w-20 h-20 rounded-full border border-slate-100 shadow-sm overflow-hidden flex-shrink-0 bg-slate-50 flex items-center justify-center">
+            {settings.logo_url ? (
+              <img src={settings.logo_url} alt="Logo" className="w-full h-full object-contain p-1" />
+            ) : (
+              <span className="text-2xl">🍔</span>
+            )}
           </div>
           <div className="flex-1 space-y-1">
-            <h1 className="text-2xl font-bold text-slate-900">KrikasBurguer</h1>
+            <h1 className="text-2xl font-bold text-slate-900">{settings.restaurant_name || 'KrikasBurguer'}</h1>
             <div className="flex items-center gap-3 text-xs">
-              <div className="flex items-center gap-1.5 text-emerald-600 font-bold uppercase tracking-wider">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                Aberto agora
-              </div>
-              <span className="text-slate-300">|</span>
-              <div className="text-slate-500">Hoje: 18:00 - 23:00</div>
+              {isOpen ? (
+                <div className="flex items-center gap-1.5 text-emerald-600 font-bold uppercase tracking-wider">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                  Aberto agora
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-red-600 font-bold uppercase tracking-wider">
+                  <div className="w-2 h-2 bg-red-500 rounded-full" />
+                  Fechado
+                </div>
+              )}
             </div>
           </div>
         </div>
