@@ -56,6 +56,11 @@ export default function AdminCardapio() {
       sort_order: nextOrder 
     }]).select()
     
+    if (error) {
+      alert('Erro ao criar categoria: ' + error.message)
+      console.error(error)
+    }
+    
     if (data) setCategories([...categories, data[0]])
     
     setNewCategoryName('')
