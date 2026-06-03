@@ -92,7 +92,7 @@ export default function RegisterPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-transparent bg-slate-50 focus:bg-white transition-all text-sm outline-none"
+                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-transparent bg-slate-50 focus:bg-white transition-all text-sm outline-none text-slate-900"
                   placeholder="Seu nome"
                   required
                 />
@@ -109,7 +109,7 @@ export default function RegisterPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-transparent bg-slate-50 focus:bg-white transition-all text-sm outline-none"
+                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-transparent bg-slate-50 focus:bg-white transition-all text-sm outline-none text-slate-900"
                   placeholder="seu@email.com"
                   required
                 />
@@ -126,7 +126,7 @@ export default function RegisterPage() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-transparent bg-slate-50 focus:bg-white transition-all text-sm outline-none"
+                  className="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-transparent bg-slate-50 focus:bg-white transition-all text-sm outline-none text-slate-900"
                   placeholder="Mínimo de 6 caracteres"
                   required
                   minLength={6}
