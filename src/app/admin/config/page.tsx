@@ -68,16 +68,14 @@ export default function AdminConfig() {
   const [importPreview, setImportPreview] = useState<any[]>([])
   const [importErrors, setImportErrors] = useState<string[]>([])
 
+  const [editingFactorRow, setEditingFactorRow] = useState<string | null>(null);
+
   // Load correction factors when tab changes
   useEffect(() => {
-    if (subTab === 'fatores') {
-      const fetchFactors = async () => {
-        const { data, error } = await createClient().from('correction_factors').select('*');
-        if (!error) setCorrectionFactors(data || []);
-      };
+    if (ingSubTab === 'fatores') {
       fetchFactors();
     }
-  }, [subTab]);
+  }, [ingSubTab]);
   const [importing, setImporting] = useState(false)
   const [importDone, setImportDone] = useState(false)
 
@@ -87,6 +85,32 @@ export default function AdminConfig() {
     loadSettings()
     fetchIngredients()
   }, [])
+
+  async function fetchFactors() {
+    const { data, error } = await supabase.from('correction_factors').select('*').order('food_name', { ascending: true });
+    if (!error) setCorrectionFactors(data || []);
+  }
+
+  async function handleUpdateFactorRow(id: string, field: string, value: string) {
+    const cf = correctionFactors.find(c => c.id === id);
+    if (!cf) return;
+    
+    let updates: any = {};
+    if (field === 'food_name') {
+      updates.food_name = value;
+    } else if (field === 'correction_factor') {
+      updates.correction_factor = parseFloat(value.replace(',', '.')) || 1;
+    }
+    
+    await supabase.from('correction_factors').update(updates).eq('id', id);
+    fetchFactors();
+  }
+
+  async function handleDeleteFactor(id: string) {
+    if (!confirm('Apagar este fator de correção?')) return;
+    await supabase.from('correction_factors').delete().eq('id', id);
+    fetchFactors();
+  }
 
   async function loadSettings() {
     const { data } = await supabase.from('restaurant_settings').select('*')
@@ -758,17 +782,59 @@ export default function AdminConfig() {
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="p-3 text-left font-bold text-slate-500">Alimento</th>
-                      <th className="p-3 text-left font-bold text-slate-500">Fator de Correção</th>
+                      <th className="p-3 text-left font-bold text-slate-500 w-1/2">Alimento</th>
+                      <th className="p-3 text-center font-bold text-slate-500">Fator de Correção</th>
+                      <th className="p-3 text-center font-bold text-slate-500">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
-                    {correctionFactors.map(cf => (
-                      <tr key={cf.id}>
-                        <td className="p-3 text-slate-800">{cf.food_name}</td>
-                        <td className="p-3 text-slate-800">{cf.correction_factor}</td>
-                      </tr>
-                    ))}
+                    {correctionFactors.map(cf => {
+                      const isEditing = editingFactorRow === cf.id;
+                      return (
+                        <tr key={cf.id} className="hover:bg-slate-50">
+                          <td className="border border-slate-300 p-0">
+                            {isEditing ? (
+                              <input 
+                                type="text" 
+                                className="w-full h-full px-3 py-2 text-xs text-slate-800 outline-none bg-transparent"
+                                defaultValue={cf.food_name}
+                                onBlur={e => handleUpdateFactorRow(cf.id, 'food_name', e.target.value)}
+                              />
+                            ) : (
+                              <div className="w-full h-full px-3 py-2 text-xs font-medium text-slate-800">{cf.food_name}</div>
+                            )}
+                          </td>
+                          <td className="border border-slate-300 p-0 text-center">
+                            {isEditing ? (
+                              <input 
+                                type="text" 
+                                className="w-full h-full px-3 py-2 text-center text-xs text-slate-800 outline-none bg-transparent"
+                                defaultValue={cf.correction_factor}
+                                onBlur={e => handleUpdateFactorRow(cf.id, 'correction_factor', e.target.value)}
+                              />
+                            ) : (
+                              <div className="w-full h-full px-3 py-2 text-xs text-slate-800">{cf.correction_factor}</div>
+                            )}
+                          </td>
+                          <td className="border border-slate-300 p-1 bg-white">
+                            <div className="flex items-center justify-center gap-1">
+                              {isEditing ? (
+                                <button onClick={() => setEditingFactorRow(null)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Concluir Edição">
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button onClick={() => setEditingFactorRow(cf.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button onClick={() => handleDeleteFactor(cf.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
