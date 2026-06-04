@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Loader2, Image as ImageIcon, UploadCloud, ChevronDown, ChevronUp, Sparkles, FileSpreadsheet, Download, CheckCircle2, XCircle, AlertTriangle, Pencil, Search } from 'lucide-react'
+import { Plus, Trash2, Loader2, Image as ImageIcon, UploadCloud, ChevronDown, ChevronUp, Sparkles, FileSpreadsheet, Download, CheckCircle2, XCircle, AlertTriangle, Pencil, Search, X } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
 
@@ -13,6 +14,7 @@ export default function AdminProdutos() {
 
   const [isAddingProduct, setIsAddingProduct] = useState(false)
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showIngredients, setShowIngredients] = useState(false)
   const [ingredientSearch, setIngredientSearch] = useState('')
@@ -209,6 +211,7 @@ export default function AdminProdutos() {
       if (data && data.length > 0) {
         setProducts(products.map(p => p.id === editingProductId ? data[0] : p))
         setEditingProductId(null)
+        setShowEditModal(false)
         setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
         setSelectedIngredients([])
       } else if (error) { alert('Erro ao atualizar: ' + error.message) }
@@ -233,12 +236,15 @@ export default function AdminProdutos() {
       price: (prod.price || 0).toString()
     });
     setEditingProductId(prod.id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSelectedIngredients([]);
+    setShowEditModal(true);
   }
 
   function cancelEdit() {
     setEditingProductId(null);
     setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' });
+    setShowEditModal(false);
+    setSelectedIngredients([]);
   }
 
   async function handleDeleteProduct(id: string) {
@@ -379,9 +385,9 @@ export default function AdminProdutos() {
         </div>
       )}
 
-      {/* ==== FORMULÁRIO DE CADASTRO/EDIÇÃO ==== */}
+      {/* ==== FORMULÁRIO DE CADASTRO ==== */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-900 mb-4">{editingProductId ? 'Editar Produto' : 'Cadastrar Novo Produto'}</h3>
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Cadastrar Novo Produto</h3>
         <form onSubmit={handleAddProduct} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 md:col-span-1">
@@ -511,16 +517,9 @@ export default function AdminProdutos() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2 mt-4">
-            {editingProductId && (
-              <button type="button" onClick={cancelEdit} className="w-1/3 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">
-                Cancelar
-              </button>
-            )}
-            <button disabled={isAddingProduct || categories.length === 0 || uploadingImage} className={`flex-1 ${editingProductId ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20' : 'bg-red-600 hover:bg-red-700 shadow-red-600/20'} text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-colors disabled:opacity-50 flex items-center justify-center`}>
-              {isAddingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : (editingProductId ? 'Salvar Alterações' : 'Cadastrar Produto')}
-            </button>
-          </div>
+          <button disabled={isAddingProduct || categories.length === 0 || uploadingImage} className="w-full bg-red-600 hover:bg-red-700 shadow-red-600/20 text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-colors disabled:opacity-50 flex items-center justify-center">
+            {isAddingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cadastrar Produto'}
+          </button>
         </form>
       </div>
 
@@ -556,6 +555,174 @@ export default function AdminProdutos() {
           </div>
         )}
       </div>
+
+      {/* ==== LIGHTBOX DE EDIÇÃO ==== */}
+      <AnimatePresence>
+        {showEditModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-0 md:p-4"
+          >
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="bg-white w-full max-w-3xl h-full md:h-auto md:max-h-[90vh] md:rounded-2xl overflow-hidden flex flex-col relative shadow-2xl"
+            >
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-50">
+                <h3 className="text-lg font-bold text-slate-900">Editar Produto</h3>
+                <button onClick={cancelEdit} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6">
+                <form onSubmit={handleAddProduct} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Nome do Produto</label>
+                      <input type="text" required value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-blue-600 text-slate-900" placeholder="Ex: Krikas Duplo" />
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Categoria</label>
+                      <select required value={productForm.category_id} onChange={e => setProductForm({...productForm, category_id: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-blue-600 text-slate-900">
+                        <option value="">Selecione...</option>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Descrição</label>
+                      <textarea value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm outline-none focus:border-blue-600 text-slate-900 h-20" placeholder="Ingredientes e detalhes..." />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Foto do Produto</label>
+                      <div className="flex gap-4 items-center">
+                        <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200 overflow-hidden flex-shrink-0">
+                          {uploadingImage ? <Loader2 className="w-6 h-6 animate-spin text-slate-400" /> : productForm.image_url ? <img src={productForm.image_url} className="w-full h-full object-cover" /> : <ImageIcon className="w-6 h-6 text-slate-400" />}
+                        </div>
+                        <div className="flex-1">
+                          <label className="w-full bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer transition-colors">
+                            <UploadCloud className="w-5 h-5 text-slate-500 mb-1" />
+                            <span className="text-xs font-bold text-slate-600">Clique para escolher do PC/Celular</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {ingredients.length > 0 && (
+                      <div className="col-span-2">
+                        <button type="button" onClick={() => setShowIngredients(!showIngredients)} className="w-full flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 hover:bg-amber-100 transition-colors">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-amber-600" />
+                            <span className="text-sm font-bold">Calcular Custo pela Ficha Técnica</span>
+                            {selectedIngredients.length > 0 && <span className="bg-amber-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">{selectedIngredients.length}</span>}
+                          </div>
+                          {showIngredients ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+                        {showIngredients && (
+                          <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-3">
+                            <div className="relative">
+                              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                              <input 
+                                type="text" 
+                                placeholder="Buscar ingrediente..." 
+                                value={ingredientSearch}
+                                onChange={e => setIngredientSearch(e.target.value)}
+                                className="w-full bg-white border border-amber-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-amber-400 text-slate-800"
+                              />
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1">
+                              {ingredients
+                                .filter(ing => ing.name.toLowerCase().includes(ingredientSearch.toLowerCase()))
+                                .map(ing => {
+                                const sel = selectedIngredients.find(i => i.id === ing.id)
+                                return (
+                                  <div key={ing.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${sel ? 'bg-white border-amber-400 shadow-sm' : 'bg-white/50 border-transparent hover:border-amber-200'}`}>
+                                    <input type="checkbox" checked={!!sel} onChange={() => toggleIngredient(ing)} className="w-4 h-4 accent-blue-600 cursor-pointer" />
+                                    <div className="flex-1" onClick={() => toggleIngredient(ing)}>
+                                      <p className="text-sm font-bold text-slate-800">{ing.name}</p>
+                                      <p className="text-xs text-slate-500">R$ {parseFloat(ing.cost).toFixed(2)} / {ing.unit}</p>
+                                    </div>
+                                    {sel && (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs text-slate-500 font-bold">Qtd:</span>
+                                        <input type="number" min="0" step="0.001" className="w-20 bg-white border border-slate-200 rounded-lg p-1 text-xs text-center text-slate-900 outline-none" value={sel.qty} onChange={e => updateIngQty(ing.id, parseFloat(e.target.value) || 0)} />
+                                        <span className="text-xs font-bold text-emerald-600">= R$ {(sel.cost * sel.qty).toFixed(2)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            {selectedIngredients.length > 0 && (
+                              <div className="pt-3 border-t border-amber-200 flex items-end gap-3 flex-wrap">
+                                <div>
+                                  <label className="block text-xs font-bold text-amber-700 mb-1">Margem desejada (%)</label>
+                                  <input type="number" min="1" max="99" className="w-24 bg-white border border-amber-300 rounded-lg p-2 text-sm text-slate-900 outline-none" value={desiredMargin} onChange={e => setDesiredMargin(e.target.value)} />
+                                </div>
+                                <button type="button" onClick={applyMarginSuggestion} className="flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-amber-700 transition-colors">
+                                  <Sparkles className="w-4 h-4" />
+                                  Sugerir Preço de Venda
+                                </button>
+                                <div className="text-xs text-amber-700 font-medium">
+                                  Custo total: <strong>R$ {selectedIngredients.reduce((a, i) => a + i.cost * i.qty, 0).toFixed(2)}</strong>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-900 p-4 rounded-xl text-white mt-2">
+                      <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-slate-400 mb-1">Preço Custo (R$)</label>
+                        <input type="text" required value={productForm.cost_price} onChange={e => setProductForm({...productForm, cost_price: e.target.value})} className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm outline-none text-white" placeholder="Ex: 8.50" />
+                      </div>
+                      <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-slate-400 mb-1">Preço Venda (R$)</label>
+                        <input type="text" required value={productForm.price} onChange={e => setProductForm({...productForm, price: e.target.value})} className="w-full bg-slate-800 border-none rounded-lg p-2 text-sm outline-none font-bold text-emerald-400" placeholder="Ex: 25.00" />
+                      </div>
+                      <div className="col-span-2 md:col-span-2 grid grid-cols-2 gap-2 bg-slate-800/50 rounded-lg p-3">
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Custo Receita</p>
+                          <p className="text-sm font-black text-slate-200">R$ {parseFloat(productForm.cost_price || '0').toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">CMV (%)</p>
+                          <p className={`text-sm font-black ${productForm.price && parseFloat(productForm.price) > 0 ? ((parseFloat(productForm.cost_price || '0') / parseFloat(productForm.price)) * 100) <= 35 ? 'text-emerald-400' : 'text-amber-400' : 'text-slate-500'}`}>
+                            {productForm.price && parseFloat(productForm.price) > 0 ? ((parseFloat(productForm.cost_price || '0') / parseFloat(productForm.price)) * 100).toFixed(1) : '0.0'}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Lucro Bruto</p>
+                          <p className={`text-sm font-black ${profit > 0 ? 'text-emerald-400' : 'text-red-400'}`}>R$ {profit.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Margem (%)</p>
+                          <p className={`text-sm font-black ${margin >= 40 ? 'text-emerald-400' : 'text-amber-400'}`}>{margin.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button type="button" onClick={cancelEdit} className="w-1/3 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">
+                      Cancelar
+                    </button>
+                    <button disabled={isAddingProduct || categories.length === 0 || uploadingImage} className="flex-1 bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-colors disabled:opacity-50 flex items-center justify-center">
+                      {isAddingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Salvar Alterações'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
