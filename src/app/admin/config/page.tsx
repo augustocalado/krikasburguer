@@ -58,8 +58,8 @@ export default function AdminConfig() {
   const [adding, setAdding] = useState(false)
   const [savingIng, setSavingIng] = useState(false)
   const [editingRow, setEditingRow] = useState<string | null>(null)
-  const [subTab, setSubTab] = useState<'insumos' | 'fatores'>('insumos')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [subTab, setSubTab] = useState<'insumos' | 'fatores'>('insumos');
+  const [ingSubTab, setIngSubTab] = useState<'lista' | 'fatores'>('lista');
   const [correctionFactors, setCorrectionFactors] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -736,29 +736,76 @@ export default function AdminConfig() {
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">F.C.</label>
                 <input type="text" required placeholder="Ex: 1.11" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.correctionFactor} onChange={e => setForm({ ...form, correctionFactor: e.target.value })} />
-          <div className="flex items-center gap-2 border-b border-slate-200">
-            {['lista', 'fatores'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setIngSubTab(tab)}
-                className={`px-4 py-2 text-sm font-bold capitalize transition-colors ${ingSubTab === tab ? 'text-red-600 border-b-2 border-red-600' : 'text-slate-500 hover:text-slate-800'}`}
-              >
-                {tab === 'lista' ? 'Lista de Insumos' : 'Fatores de Correção'}
-              </button>
-            ))}
+              </div>
+            </form>
           </div>
 
-          {ingSubTab === 'lista' && (
-            <>
-              <div className="flex flex-col sm:flex-row sm:justify-end">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex items-center gap-2 border-b border-slate-200 mb-6">
+              {(['lista', 'fatores'] as const).map((tab) => (
                 <button
-                  onClick={() => { setShowImport(!showImport); setImportDone(false) }}
-                  className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 transition-colors"
+                  key={tab}
+                  onClick={() => setIngSubTab(tab)}
+                  className={`px-4 py-2 text-sm font-bold capitalize transition-colors ${ingSubTab === tab ? 'text-red-600 border-b-2 border-red-600' : 'text-slate-500 hover:text-slate-800'}`}
                 >
-                  <FileSpreadsheet className="w-5 h-5" />
-                  Importar Excel
+                  {tab === 'lista' ? 'Lista de Insumos' : 'Fatores de Correção'}
                 </button>
+              ))}
+            </div>
+
+            {ingSubTab === 'fatores' && (
+              <div className="overflow-x-auto mt-4">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="p-3 text-left font-bold text-slate-500">Alimento</th>
+                      <th className="p-3 text-left font-bold text-slate-500">Fator de Correção</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {correctionFactors.map(cf => (
+                      <tr key={cf.id}>
+                        <td className="p-3 text-slate-800">{cf.food_name}</td>
+                        <td className="p-3 text-slate-800">{cf.correction_factor}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+            )}
+
+            {ingSubTab === 'lista' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="p-3 text-left font-bold text-slate-500">Nome</th>
+                      <th className="p-3 text-right font-bold text-slate-500">R$ Pago</th>
+                      <th className="p-3 text-center font-bold text-slate-500">Vol.</th>
+                      <th className="p-3 text-center font-bold text-slate-500">Un.</th>
+                      <th className="p-3 text-center font-bold text-slate-500">F.C.</th>
+                      <th className="p-3 text-right font-bold text-slate-500">Custo/Un.</th>
+                      <th className="p-3 text-right font-bold text-slate-500">Custo/Limpo</th>
+                      <th className="p-3 text-center font-bold text-slate-500">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {(() => {
+                      return ingredients.map((ing) => {
+                        const pv = Number(ing.paid_value) || 0
+                        const vol = Number(ing.package_volume) || 0
+                        const fc = Number(ing.correction_factor) || 0
+                        const valorUnd = vol > 0 ? pv / vol : 0
+                        const valorLimpo = valorUnd * fc
+                        const isEditing = editingRow === ing.id
+
+                        return (
+                          <tr key={ing.id} className="hover:bg-slate-50">
+                            <td className="border border-slate-300 p-0">
+                            {isEditing ? (
+                              <input 
+                                type="text" 
+                                className="w-full h-full px-2 py-2 text-xs text-slate-800 outline-none bg-transparent"
                                 defaultValue={ing.name}
                                 onBlur={e => handleUpdateRow(ing.id, 'name', e.target.value)}
                               />
@@ -845,7 +892,6 @@ export default function AdminConfig() {
                         </tr>
                       )
                     })
-                  }
                   })()}
                   </tbody>
                 </table>
