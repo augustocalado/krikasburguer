@@ -320,23 +320,46 @@ export default function AdminConfig() {
       const data = new Uint8Array(ev.target?.result as ArrayBuffer)
       const wb = XLSX.read(data, { type: 'array' })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' })
-
+      const rawRows = XLSX.utils.sheet_to_json(ws, { header: 1 })
       const errors: string[] = []
-      const preview = rows.map((row, i) => {
-        const name = String(row['nome'] || row['Nome'] || row['NOME'] || row['PRODUTOS'] || '').trim()
+
+      // Encontrar a linha de cabeçalho
+      let headerIdx = 0
+      for (let i = 0; i < Math.min(10, rawRows.length); i++) {
+        const row = rawRows[i] as any[]
+        if (row && row.some(c => typeof c === 'string' && (c.toUpperCase().includes('NOME') || c.toUpperCase().includes('PRODUTO')))) {
+          headerIdx = i
+          break
+        }
+      }
+
+      const headers = (rawRows[headerIdx] as string[]) || []
+      const dataRows = rawRows.slice(headerIdx + 1)
+
+      const preview = dataRows.map((rowArr: any, i) => {
+        if (!rowArr || rowArr.length === 0) return null
+
+        const row: any = {}
+        headers.forEach((h, colIdx) => {
+          if (h && typeof h === 'string') row[h.trim()] = rowArr[colIdx]
+        })
+
+        const name = String(row['nome'] || row['Nome'] || row['NOME'] || row['PRODUTOS'] || row['Produtos'] || '').trim()
         const unidade = String(row['unidade'] || row['Unidade'] || row['UNIDADE DE MEDIDA'] || 'un').trim()
         const paid_value = parseFloat(String(row['valor_pago'] || row['Valor Pago'] || row['VALOR PAGO'] || row['VALOR PAGO (R$)'] || '0').replace(',', '.'))
         const package_volume = parseFloat(String(row['volume_embalagem'] || row['Volume'] || row['VOLUME EMBALAGEM'] || '1').replace(',', '.'))
         const fc = parseFloat(String(row['fc'] || row['F.C.'] || row['F.C'] || '1').replace(',', '.'))
 
+        // Se a linha estiver toda vazia, pula
+        if (!name && paid_value === 0 && package_volume === 1 && fc === 1) return null
+
         const calculatedCost = (paid_value / package_volume) * fc
 
-        if (!name) errors.push(`Linha ${i + 2}: Nome em branco`)
-        if (isNaN(paid_value)) errors.push(`Linha ${i + 2}: Valor pago inválido`)
+        if (!name) errors.push(`Linha ${i + headerIdx + 2}: Nome em branco`)
+        if (isNaN(paid_value)) errors.push(`Linha ${i + headerIdx + 2}: Valor pago inválido`)
 
         return { name, unidade, paid_value, package_volume, fc, cost: calculatedCost, valid: !!name && !isNaN(paid_value) }
-      }).filter(r => r.name)
+      }).filter(Boolean)
 
       setImportErrors(errors)
       setImportPreview(preview)
