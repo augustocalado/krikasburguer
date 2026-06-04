@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Loader2, Image as ImageIcon, UploadCloud, GripVertical, ChevronDown, ChevronUp, Sparkles, FileSpreadsheet, Download, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Loader2, Image as ImageIcon, UploadCloud, GripVertical, ChevronDown, ChevronUp, Sparkles, FileSpreadsheet, Download, CheckCircle2, XCircle, AlertTriangle, Pencil } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Reorder } from 'framer-motion'
 import * as XLSX from 'xlsx'
@@ -16,6 +16,7 @@ export default function AdminCardapio() {
   const [isAddingCategory, setIsAddingCategory] = useState(false)
 
   const [isAddingProduct, setIsAddingProduct] = useState(false)
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showIngredients, setShowIngredients] = useState(false)
   const [selectedIngredients, setSelectedIngredients] = useState<{ id: string; name: string; cost: number; qty: number }[]>([])
@@ -226,17 +227,50 @@ export default function AdminCardapio() {
   async function handleAddProduct(e: React.FormEvent) {
     e.preventDefault()
     setIsAddingProduct(true)
-    const { data, error } = await supabase.from('products').insert([{
-      name: productForm.name, description: productForm.description, image_url: productForm.image_url,
+    const productData = {
+      name: productForm.name, 
+      description: productForm.description, 
+      image_url: productForm.image_url,
       category_id: productForm.category_id,
       cost_price: parseFloat(productForm.cost_price.replace(',', '.')),
       price: parseFloat(productForm.price.replace(',', '.'))
-    }]).select()
-    if (data) {
-      setProducts([data[0], ...products]); setIsAddingProduct(false)
-      setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
-      setSelectedIngredients([])
-    } else if (error) { alert('Erro ao cadastrar: ' + error.message); setIsAddingProduct(false) }
+    }
+
+    if (editingProductId) {
+      const { data, error } = await supabase.from('products').update(productData).eq('id', editingProductId).select()
+      if (data && data.length > 0) {
+        setProducts(products.map(p => p.id === editingProductId ? data[0] : p))
+        setEditingProductId(null)
+        setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
+        setSelectedIngredients([])
+      } else if (error) { alert('Erro ao atualizar: ' + error.message) }
+    } else {
+      const { data, error } = await supabase.from('products').insert([productData]).select()
+      if (data && data.length > 0) {
+        setProducts([data[0], ...products])
+        setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
+        setSelectedIngredients([])
+      } else if (error) { alert('Erro ao cadastrar: ' + error.message) }
+    }
+    setIsAddingProduct(false)
+  }
+
+  function startEditProduct(prod: any) {
+    setProductForm({
+      name: prod.name || '',
+      description: prod.description || '',
+      image_url: prod.image_url || '',
+      category_id: prod.category_id || '',
+      cost_price: (prod.cost_price || 0).toString(),
+      price: (prod.price || 0).toString()
+    });
+    setEditingProductId(prod.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    setEditingProductId(null);
+    setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' });
   }
 
   async function handleDeleteProduct(id: string) {
@@ -415,7 +449,7 @@ export default function AdminCardapio() {
         {/* Painel Direito: Novo Produto e Lista */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Cadastrar Novo Produto</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">{editingProductId ? 'Editar Produto' : 'Cadastrar Novo Produto'}</h3>
             <form onSubmit={handleAddProduct} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2 md:col-span-1">
@@ -533,9 +567,16 @@ export default function AdminCardapio() {
                   </div>
                 </div>
               </div>
-              <button disabled={isAddingProduct || categories.length === 0 || uploadingImage} className="w-full bg-red-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-red-600/20 hover:bg-red-700 transition-colors disabled:opacity-50 mt-4 flex items-center justify-center">
-                {isAddingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Cadastrar Produto'}
-              </button>
+              <div className="flex gap-2 mt-4">
+                {editingProductId && (
+                  <button type="button" onClick={cancelEdit} className="w-1/3 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">
+                    Cancelar
+                  </button>
+                )}
+                <button disabled={isAddingProduct || categories.length === 0 || uploadingImage} className={`flex-1 ${editingProductId ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20' : 'bg-red-600 hover:bg-red-700 shadow-red-600/20'} text-white py-3 rounded-xl font-bold text-sm shadow-lg transition-colors disabled:opacity-50 flex items-center justify-center`}>
+                  {isAddingProduct ? <Loader2 className="w-5 h-5 animate-spin" /> : (editingProductId ? 'Salvar Alterações' : 'Cadastrar Produto')}
+                </button>
+              </div>
             </form>
           </div>
 
@@ -554,9 +595,14 @@ export default function AdminCardapio() {
                     <span className="text-blue-600 bg-blue-50 px-2 rounded-full">Lucro: R$ {(prod.price - prod.cost_price).toFixed(2)}</span>
                   </div>
                 </div>
-                <button onClick={() => handleDeleteProduct(prod.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors">
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => startEditProduct(prod)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors" title="Editar Produto">
+                    <Pencil className="w-5 h-5" />
+                  </button>
+                  <button onClick={() => handleDeleteProduct(prod.id)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors" title="Apagar Produto">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ))}
             {products.length === 0 && (

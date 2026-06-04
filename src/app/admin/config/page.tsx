@@ -761,6 +761,12 @@ export default function AdminConfig() {
                 <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">F.C.</label>
                 <input type="text" required placeholder="Ex: 1.11" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.correctionFactor} onChange={e => setForm({ ...form, correctionFactor: e.target.value })} />
               </div>
+              <div className="md:col-span-6">
+                <button type="submit" disabled={savingIng} className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 disabled:opacity-50">
+                  {savingIng ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {savingIng ? 'Salvando...' : 'Adicionar Ingrediente'}
+                </button>
+              </div>
             </form>
           </div>
 
@@ -776,6 +782,17 @@ export default function AdminConfig() {
                 </button>
               ))}
             </div>
+
+            {ingSubTab === 'fatores' && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm font-bold text-amber-800 mb-1">📋 O que é o Fator de Correção?</p>
+                <p className="text-xs text-amber-700">É o quanto do alimento se perde no preparo (casca, osso, sebo, água). Por exemplo, a Cebola tem F.C. 1,25 — isso significa que para obter 1kg limpo, você precisa comprar 1,25kg. Use essa tabela como <strong>consulta</strong> ao cadastrar um ingrediente no campo "F.C.".</p>
+                <div className="mt-3 p-3 bg-white rounded-lg border border-amber-300">
+                  <p className="text-xs font-bold text-slate-700">💡 Como usar:</p>
+                  <p className="text-xs text-slate-600 mt-1">Pesquise o alimento abaixo → copie o valor do F.C. → cole no campo "F.C." ao adicionar/editar o ingrediente acima.</p>
+                </div>
+              </div>
+            )}
 
             {ingSubTab === 'fatores' && (
               <div className="overflow-x-auto mt-4">
