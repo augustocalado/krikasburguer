@@ -220,6 +220,40 @@ export default function AdminConfig() {
     setSavingIng(false)
   }
 
+  async function handleUpdateRow(id: string, field: string, value: string) {
+    const ing = ingredients.find(i => i.id === id);
+    if (!ing) return;
+    
+    let updates: any = {};
+    let pv = ing.paid_value || 0;
+    let vol = ing.package_volume || 1;
+    let fc = ing.correction_factor || 1;
+
+    if (field === 'paid_value') {
+      updates.paid_value = parseFloat(value.replace(',', '.')) || 0;
+      pv = updates.paid_value;
+    } else if (field === 'package_volume') {
+      updates.package_volume = parseFloat(value.replace(',', '.')) || 1;
+      vol = updates.package_volume;
+    } else if (field === 'correction_factor') {
+      updates.correction_factor = parseFloat(value.replace(',', '.')) || 1;
+      fc = updates.correction_factor;
+    } else if (field === 'name') {
+      updates.name = value;
+    } else if (field === 'unit') {
+      updates.unit = value;
+    }
+
+    if (['paid_value', 'package_volume', 'correction_factor'].includes(field)) {
+      updates.cost = (pv / vol) * fc;
+    }
+
+    setSavingIng(true);
+    await supabase.from('ingredients').update(updates).eq('id', id);
+    fetchIngredients();
+    setSavingIng(false);
+  }
+
   // ==== IMPORTAÇÃO DE EXCEL (INGREDIENTES) ====
   function downloadTemplate() {
     const ws = XLSX.utils.aoa_to_sheet([
@@ -695,66 +729,107 @@ export default function AdminConfig() {
             </form>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h3 className="font-bold text-slate-900">Ingredientes e Precificação ({ingredients.length})</h3>
-              {savingIng && <span className="text-xs text-slate-400 flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" />Atualizando custo...</span>}
+          <div className="bg-white shadow-xl border border-slate-200 overflow-hidden mt-6">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
+              <h3 className="font-black text-slate-800 text-lg uppercase tracking-wide">Lista de Insumos</h3>
+              {savingIng && <span className="text-xs text-blue-600 font-bold flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full"><Loader2 className="w-3 h-3 animate-spin" /> Atualizando planilha...</span>}
             </div>
+            
             {loadingIngs ? (
-              <div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-red-600" /></div>
+              <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>
             ) : ingredients.length === 0 ? (
-              <div className="p-10 text-center text-slate-400 text-sm">Nenhum ingrediente cadastrado.</div>
+              <div className="p-12 text-center text-slate-400 text-sm">A planilha está vazia. Cadastre ou importe ingredientes.</div>
             ) : (
-              <div className="divide-y divide-slate-100">
-                <div className="grid grid-cols-12 px-6 py-3 bg-white text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-100">
-                  <div className="col-span-4">Produto</div>
-                  <div className="col-span-2 text-center">Valor Pago</div>
-                  <div className="col-span-2 text-center">Vol. Emb.</div>
-                  <div className="col-span-1 text-center">F.C.</div>
-                  <div className="col-span-2 text-right">Valor Limpo</div>
-                  <div className="col-span-1 text-right"></div>
-                </div>
-                {ingredients.map(ing => (
-                  <div key={ing.id} className="grid grid-cols-12 px-6 py-3 items-center hover:bg-slate-50/50">
-                    <div className="col-span-4 pr-4">
-                      <p className="font-bold text-slate-800 text-xs line-clamp-1" title={ing.name}>{ing.name}</p>
-                    </div>
-                    
-                    <div className="col-span-2 text-center">
-                      <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded px-2 py-1 focus-within:border-red-400">
-                        <span className="text-[10px] text-slate-400 font-bold mr-1">R$</span>
-                        <input
-                          type="text"
-                          className="w-12 bg-transparent text-xs text-center text-slate-900 outline-none font-mono"
-                          defaultValue={ing.paid_value}
-                          onBlur={e => handleSaveCost(ing.id, e.target.value, ing.package_volume || 1, ing.correction_factor || 1)}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="col-span-2 text-center flex items-center justify-center gap-1">
-                      <span className="text-xs text-slate-600 font-bold">{ing.package_volume}</span>
-                      <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded">{ing.unit}</span>
-                    </div>
-
-                    <div className="col-span-1 text-center">
-                      <span className="text-xs text-slate-600 font-medium">{ing.correction_factor}</span>
-                    </div>
-
-                    <div className="col-span-2 text-right">
-                      <span className="text-sm font-bold text-emerald-600">
-                        <span className="text-[10px] mr-0.5">R$</span>
-                        {ing.cost?.toFixed(2)}
-                      </span>
-                    </div>
-
-                    <div className="col-span-1 flex justify-end">
-                      <button onClick={() => handleDelete(ing.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse min-w-[800px]">
+                  <thead>
+                    <tr>
+                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-12 text-center text-[10px] font-bold">CÓD.</th>
+                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 text-left text-[10px] font-bold min-w-[200px]">PRODUTOS</th>
+                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">VALOR<br/>PAGO (R$)</th>
+                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">VOLUME<br/>EMBALAGEM</th>
+                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">UNIDADE DE<br/>MEDIDA</th>
+                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-20 text-center text-[10px] font-bold">F.C.</th>
+                      <th className="border border-slate-300 bg-[#8db4e2] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR<br/>KG/L/UND</th>
+                      <th className="border border-slate-300 bg-[#1f497d] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR LIMPO<br/>KG/L/UND</th>
+                      <th className="border border-slate-300 bg-white p-2 w-10 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ingredients.map((ing, index) => {
+                      const pv = ing.paid_value || 0;
+                      const vol = ing.package_volume || 1;
+                      const fc = ing.correction_factor || 1;
+                      const valorUnd = pv / vol;
+                      const valorLimpo = valorUnd * fc;
+                      
+                      return (
+                        <tr key={ing.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="border border-slate-300 p-1 text-center font-bold text-slate-500 text-xs bg-slate-50">
+                            {index + 1}
+                          </td>
+                          <td className="border border-slate-300 p-0">
+                            <input 
+                              type="text" 
+                              className="w-full h-full px-2 py-2 text-xs font-medium text-slate-800 outline-none focus:bg-yellow-50 transition-colors"
+                              defaultValue={ing.name}
+                              onBlur={e => handleUpdateRow(ing.id, 'name', e.target.value)}
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-0">
+                            <div className="flex h-full w-full items-center px-2 focus-within:bg-yellow-50">
+                              <span className="text-slate-400 text-[10px]">R$</span>
+                              <input 
+                                type="text" 
+                                className="w-full h-full bg-transparent text-right text-xs text-slate-700 outline-none"
+                                defaultValue={pv.toFixed(2)}
+                                onBlur={e => handleUpdateRow(ing.id, 'paid_value', e.target.value)}
+                              />
+                            </div>
+                          </td>
+                          <td className="border border-slate-300 p-0">
+                            <input 
+                              type="text" 
+                              className="w-full h-full px-2 text-center text-xs text-slate-700 outline-none focus:bg-yellow-50"
+                              defaultValue={vol}
+                              onBlur={e => handleUpdateRow(ing.id, 'package_volume', e.target.value)}
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-0">
+                            <select 
+                              className="w-full h-full px-2 text-center text-xs text-slate-700 outline-none focus:bg-yellow-50 appearance-none bg-transparent cursor-pointer"
+                              value={ing.unit}
+                              onChange={e => handleUpdateRow(ing.id, 'unit', e.target.value)}
+                            >
+                              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          </td>
+                          <td className="border border-slate-300 p-0">
+                            <input 
+                              type="text" 
+                              className="w-full h-full px-2 text-center text-xs text-slate-700 outline-none focus:bg-yellow-50"
+                              defaultValue={fc.toFixed(2)}
+                              onBlur={e => handleUpdateRow(ing.id, 'correction_factor', e.target.value)}
+                            />
+                          </td>
+                          <td className="border border-slate-300 p-2 text-right bg-slate-50 font-medium">
+                            <span className="text-[10px] text-slate-400 mr-1">R$</span>
+                            <span className="text-slate-700 text-xs">{valorUnd.toFixed(2)}</span>
+                          </td>
+                          <td className="border border-slate-300 p-2 text-right font-bold bg-[#f2f2f2]">
+                            <span className="text-[10px] text-slate-500 mr-1">R$</span>
+                            <span className="text-slate-800 text-xs">{valorLimpo.toFixed(2)}</span>
+                          </td>
+                          <td className="border border-slate-300 p-1 text-center bg-white">
+                            <button onClick={() => handleDelete(ing.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors mx-auto block" title="Excluir">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
