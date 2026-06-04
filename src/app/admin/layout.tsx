@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, ShoppingBag, Settings, LogOut, Utensils } from 'lucide-react'
+import { LayoutDashboard, Users, ShoppingBag, Settings, LogOut, Utensils, Package } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -20,6 +20,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { name: 'Pedidos', href: '/admin/pedidos', icon: ShoppingBag },
     { name: 'Cardápio', href: '/admin/cardapio', icon: Utensils },
+    { name: 'Produtos', href: '/admin/produtos', icon: Package },
     { name: 'Clientes', href: '/admin/clientes', icon: Users },
     { name: 'Configurações', href: '/admin/config', icon: Settings },
   ]
