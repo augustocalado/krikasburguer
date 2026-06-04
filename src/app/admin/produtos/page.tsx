@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Loader2, Image as ImageIcon, UploadCloud, ChevronDown, ChevronUp, Sparkles, FileSpreadsheet, Download, CheckCircle2, XCircle, AlertTriangle, Pencil } from 'lucide-react'
+import { Plus, Trash2, Loader2, Image as ImageIcon, UploadCloud, ChevronDown, ChevronUp, Sparkles, FileSpreadsheet, Download, CheckCircle2, XCircle, AlertTriangle, Pencil, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
 
@@ -15,6 +15,7 @@ export default function AdminProdutos() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [showIngredients, setShowIngredients] = useState(false)
+  const [ingredientSearch, setIngredientSearch] = useState('')
   const [selectedIngredients, setSelectedIngredients] = useState<{ id: string; name: string; cost: number; qty: number }[]>([])
   const [desiredMargin, setDesiredMargin] = useState('70')
 
@@ -426,8 +427,20 @@ export default function AdminProdutos() {
                 </button>
                 {showIngredients && (
                   <div className="mt-3 bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-3">
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar ingrediente..." 
+                        value={ingredientSearch}
+                        onChange={e => setIngredientSearch(e.target.value)}
+                        className="w-full bg-white border border-amber-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:border-amber-400 text-slate-800"
+                      />
+                    </div>
                     <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto pr-1">
-                      {ingredients.map(ing => {
+                      {ingredients
+                        .filter(ing => ing.name.toLowerCase().includes(ingredientSearch.toLowerCase()))
+                        .map(ing => {
                         const sel = selectedIngredients.find(i => i.id === ing.id)
                         return (
                           <div key={ing.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${sel ? 'bg-white border-amber-400 shadow-sm' : 'bg-white/50 border-transparent hover:border-amber-200'}`}>
