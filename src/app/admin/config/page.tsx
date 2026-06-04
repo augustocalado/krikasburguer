@@ -759,37 +759,33 @@ export default function AdminConfig() {
             <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
               <Package className="w-5 h-5 text-red-600" /> Adicionar Ingrediente Manualmente
             </h3>
-            <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-6 gap-4">
-              <div className="md:col-span-2">
+            <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[160px]">
                 <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Nome</label>
-                <input type="text" required placeholder="Ex: Cebola Roxa" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <input type="text" required placeholder="Ex: Cebola Roxa" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-red-600" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Valor Pago (R$)</label>
-                <input type="text" required placeholder="Ex: 5.00" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.paidValue} onChange={e => setForm({ ...form, paidValue: e.target.value })} />
+              <div className="w-[100px]">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Pago (R$)</label>
+                <input type="text" required placeholder="5.00" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-red-600" value={form.paidValue} onChange={e => setForm({ ...form, paidValue: e.target.value })} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider truncate" title="Volume da Embalagem">Vol. Emb.</label>
-                  <input type="text" required placeholder="Ex: 1" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.packageVolume} onChange={e => setForm({ ...form, packageVolume: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Un.</label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}>
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
+              <div className="w-[80px]">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider truncate" title="Volume da Embalagem">Vol.</label>
+                <input type="text" required placeholder="1" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-red-600" value={form.packageVolume} onChange={e => setForm({ ...form, packageVolume: e.target.value })} />
               </div>
-              <div>
+              <div className="w-[70px]">
+                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Un.</label>
+                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-sm text-slate-900 outline-none focus:border-red-600" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}>
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div className="w-[70px]">
                 <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">F.C.</label>
-                <input type="text" required placeholder="Ex: 1.11" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.correctionFactor} onChange={e => setForm({ ...form, correctionFactor: e.target.value })} />
+                <input type="text" required placeholder="1.11" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-red-600" value={form.correctionFactor} onChange={e => setForm({ ...form, correctionFactor: e.target.value })} />
               </div>
-              <div className="md:col-span-6">
-                <button type="submit" disabled={savingIng} className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-red-600/20 flex items-center justify-center gap-2 disabled:opacity-50">
-                  {savingIng ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  {savingIng ? 'Salvando...' : 'Adicionar Ingrediente'}
-                </button>
-              </div>
+              <button type="submit" disabled={savingIng} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-red-600/20 flex items-center gap-2 disabled:opacity-50 flex-shrink-0">
+                {savingIng ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {savingIng ? 'Salvando...' : 'Adicionar'}
+              </button>
             </form>
           </div>
 
