@@ -750,8 +750,8 @@ export default function AdminConfig() {
                       <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">VOLUME<br/>EMBALAGEM</th>
                       <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">UNIDADE DE<br/>MEDIDA</th>
                       <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-20 text-center text-[10px] font-bold">F.C.</th>
-                      <th className="border border-slate-300 bg-[#8db4e2] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR<br/>KG/L/UND</th>
-                      <th className="border border-slate-300 bg-[#1f497d] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR LIMPO<br/>KG/L/UND</th>
+                      <th className="border border-slate-300 bg-[#8db4e2] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR<br/>KG/Litro/ UND</th>
+                      <th className="border border-slate-300 bg-[#1f497d] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR LIMPO<br/>KG/ Litro/ UND</th>
                       <th className="border border-slate-300 bg-white p-2 w-10 text-center"></th>
                     </tr>
                   </thead>
