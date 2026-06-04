@@ -206,27 +206,43 @@ export default function AdminProdutos() {
       price: parseFloat(productForm.price.replace(',', '.'))
     }
 
+    let savedProduct: any = null
+
     if (editingProductId) {
       const { data, error } = await supabase.from('products').update(productData).eq('id', editingProductId).select()
       if (data && data.length > 0) {
+        savedProduct = data[0]
         setProducts(products.map(p => p.id === editingProductId ? data[0] : p))
         setEditingProductId(null)
         setShowEditModal(false)
-        setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
-        setSelectedIngredients([])
       } else if (error) { alert('Erro ao atualizar: ' + error.message) }
     } else {
       const { data, error } = await supabase.from('products').insert([productData]).select()
       if (data && data.length > 0) {
+        savedProduct = data[0]
         setProducts([data[0], ...products])
-        setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
-        setSelectedIngredients([])
       } else if (error) { alert('Erro ao cadastrar: ' + error.message) }
+    }
+
+    if (savedProduct) {
+      // Salva ingredientes da ficha técnica
+      const productId = savedProduct.id
+      await supabase.from('product_ingredients').delete().eq('product_id', productId)
+      if (selectedIngredients.length > 0) {
+        const piRows = selectedIngredients.map(ing => ({
+          product_id: productId,
+          ingredient_id: ing.id,
+          quantity: ing.qty
+        }))
+        await supabase.from('product_ingredients').insert(piRows)
+      }
+      setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' })
+      setSelectedIngredients([])
     }
     setIsAddingProduct(false)
   }
 
-  function startEditProduct(prod: any) {
+  async function startEditProduct(prod: any) {
     setProductForm({
       name: prod.name || '',
       description: prod.description || '',
@@ -236,7 +252,25 @@ export default function AdminProdutos() {
       price: (prod.price || 0).toString()
     });
     setEditingProductId(prod.id);
-    setSelectedIngredients([]);
+    setShowIngredients(false);
+
+    // Carrega ingredientes já vinculados
+    const { data: piData } = await supabase
+      .from('product_ingredients')
+      .select('ingredient_id, quantity')
+      .eq('product_id', prod.id)
+
+    if (piData && piData.length > 0) {
+      const loaded = piData.map(pi => {
+        const ing = ingredients.find(i => i.id === pi.ingredient_id)
+        return ing ? { id: ing.id, name: ing.name, cost: parseFloat(ing.cost), qty: pi.quantity } : null
+      }).filter(Boolean) as { id: string; name: string; cost: number; qty: number }[]
+      setSelectedIngredients(loaded)
+      recalcCost(loaded)
+    } else {
+      setSelectedIngredients([])
+    }
+
     setShowEditModal(true);
   }
 
