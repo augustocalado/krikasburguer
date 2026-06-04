@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   Plus, Trash2, Loader2, Package, UploadCloud, Image as ImageIcon,
-  MapPin, Clock, DollarSign, Store, Save, CheckCircle2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, FileSpreadsheet, Download, AlertTriangle, XCircle, Pencil, Check, X
+  MapPin, Clock, DollarSign, Store, Save, CheckCircle2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, FileSpreadsheet, Download, AlertTriangle, XCircle, Pencil, Check, X, Search
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
@@ -58,11 +58,26 @@ export default function AdminConfig() {
   const [adding, setAdding] = useState(false)
   const [savingIng, setSavingIng] = useState(false)
   const [editingRow, setEditingRow] = useState<string | null>(null)
+  const [subTab, setSubTab] = useState<'insumos' | 'fatores'>('insumos')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [correctionFactors, setCorrectionFactors] = useState<any[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Excel Import for Ingredients
   const [showImport, setShowImport] = useState(false)
   const [importPreview, setImportPreview] = useState<any[]>([])
   const [importErrors, setImportErrors] = useState<string[]>([])
+
+  // Load correction factors when tab changes
+  useEffect(() => {
+    if (subTab === 'fatores') {
+      const fetchFactors = async () => {
+        const { data, error } = await createClient().from('correction_factors').select('*');
+        if (!error) setCorrectionFactors(data || []);
+      };
+      fetchFactors();
+    }
+  }, [subTab]);
   const [importing, setImporting] = useState(false)
   const [importDone, setImportDone] = useState(false)
 
@@ -721,60 +736,29 @@ export default function AdminConfig() {
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">F.C.</label>
                 <input type="text" required placeholder="Ex: 1.11" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-red-600" value={form.correctionFactor} onChange={e => setForm({ ...form, correctionFactor: e.target.value })} />
-              </div>
-              <div className="flex items-end">
-                <button disabled={adding} className="w-full bg-red-600 text-white h-[46px] rounded-xl flex items-center justify-center font-bold text-sm shadow-lg hover:bg-red-700 transition-colors">
-                  {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar'}
-                </button>
-              </div>
-            </form>
+          <div className="flex items-center gap-2 border-b border-slate-200">
+            {['lista', 'fatores'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setIngSubTab(tab)}
+                className={`px-4 py-2 text-sm font-bold capitalize transition-colors ${ingSubTab === tab ? 'text-red-600 border-b-2 border-red-600' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                {tab === 'lista' ? 'Lista de Insumos' : 'Fatores de Correção'}
+              </button>
+            ))}
           </div>
 
-          <div className="bg-white shadow-xl border border-slate-200 overflow-hidden mt-6">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
-              <h3 className="font-black text-slate-800 text-lg uppercase tracking-wide">Lista de Insumos</h3>
-              {savingIng && <span className="text-xs text-blue-600 font-bold flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full"><Loader2 className="w-3 h-3 animate-spin" /> Atualizando planilha...</span>}
-            </div>
-            
-            {loadingIngs ? (
-              <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>
-            ) : ingredients.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 text-sm">A planilha está vazia. Cadastre ou importe ingredientes.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse min-w-[800px]">
-                  <thead>
-                    <tr>
-                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-12 text-center text-[10px] font-bold">CÓD.</th>
-                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 text-left text-[10px] font-bold min-w-[200px]">PRODUTOS</th>
-                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">VALOR<br/>PAGO (R$)</th>
-                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">VOLUME<br/>EMBALAGEM</th>
-                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-28 text-center text-[10px] font-bold whitespace-nowrap">UNIDADE DE<br/>MEDIDA</th>
-                      <th className="border border-slate-300 bg-[#4f81bd] text-white p-2 w-20 text-center text-[10px] font-bold">F.C.</th>
-                      <th className="border border-slate-300 bg-[#8db4e2] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR<br/>KG/Litro/ UND</th>
-                      <th className="border border-slate-300 bg-[#1f497d] text-white p-2 w-32 text-center text-[10px] font-bold whitespace-nowrap">VALOR LIMPO<br/>KG/ Litro/ UND</th>
-                      <th className="border border-slate-300 bg-white p-2 w-10 text-center"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ingredients.map((ing, index) => {
-                      const pv = ing.paid_value || 0;
-                      const vol = ing.package_volume || 1;
-                      const fc = ing.correction_factor || 1;
-                      const valorUnd = pv / vol;
-                      const valorLimpo = valorUnd * fc;
-                      const isEditing = editingRow === ing.id;
-                      
-                      return (
-                        <tr key={ing.id} className={`${isEditing ? 'bg-yellow-50' : 'hover:bg-slate-50'} transition-colors`}>
-                          <td className="border border-slate-300 p-1 text-center font-bold text-slate-500 text-xs bg-slate-50">
-                            {index + 1}
-                          </td>
-                          <td className="border border-slate-300 p-0">
-                            {isEditing ? (
-                              <input 
-                                type="text" 
-                                className="w-full h-full px-2 py-2 text-xs font-medium text-slate-800 outline-none bg-transparent"
+          {ingSubTab === 'lista' && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:justify-end">
+                <button
+                  onClick={() => { setShowImport(!showImport); setImportDone(false) }}
+                  className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 transition-colors"
+                >
+                  <FileSpreadsheet className="w-5 h-5" />
+                  Importar Excel
+                </button>
+              </div>
                                 defaultValue={ing.name}
                                 onBlur={e => handleUpdateRow(ing.id, 'name', e.target.value)}
                               />
@@ -860,7 +844,9 @@ export default function AdminConfig() {
                           </td>
                         </tr>
                       )
-                    })}
+                    })
+                  }
+                  })()}
                   </tbody>
                 </table>
               </div>
