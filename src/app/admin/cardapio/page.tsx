@@ -474,7 +474,7 @@ export default function AdminCardapio() {
                                 {sel && (
                                   <div className="flex items-center gap-1">
                                     <span className="text-xs text-slate-500 font-bold">Qtd:</span>
-                                    <input type="number" min="1" className="w-14 bg-white border border-slate-200 rounded-lg p-1 text-xs text-center text-slate-900 outline-none" value={sel.qty} onChange={e => updateIngQty(ing.id, parseInt(e.target.value) || 1)} />
+                                    <input type="number" min="0" step="0.001" className="w-20 bg-white border border-slate-200 rounded-lg p-1 text-xs text-center text-slate-900 outline-none" value={sel.qty} onChange={e => updateIngQty(ing.id, parseFloat(e.target.value) || 0)} />
                                     <span className="text-xs font-bold text-emerald-600">= R$ {(sel.cost * sel.qty).toFixed(2)}</span>
                                   </div>
                                 )}
