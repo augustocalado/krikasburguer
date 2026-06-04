@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import {
   Plus, Trash2, Loader2, Package, UploadCloud, Image as ImageIcon,
-  MapPin, Clock, DollarSign, Store, Save, CheckCircle2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, FileSpreadsheet, Download, AlertTriangle, XCircle
+  MapPin, Clock, DollarSign, Store, Save, CheckCircle2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, FileSpreadsheet, Download, AlertTriangle, XCircle, Pencil, Check, X
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import * as XLSX from 'xlsx'
@@ -57,6 +57,7 @@ export default function AdminConfig() {
   const [form, setForm] = useState({ name: '', unit: 'un', paidValue: '', packageVolume: '1', correctionFactor: '1.00' })
   const [adding, setAdding] = useState(false)
   const [savingIng, setSavingIng] = useState(false)
+  const [editingRow, setEditingRow] = useState<string | null>(null)
 
   // Excel Import for Ingredients
   const [showImport, setShowImport] = useState(false)
@@ -762,55 +763,76 @@ export default function AdminConfig() {
                       const fc = ing.correction_factor || 1;
                       const valorUnd = pv / vol;
                       const valorLimpo = valorUnd * fc;
+                      const isEditing = editingRow === ing.id;
                       
                       return (
-                        <tr key={ing.id} className="hover:bg-slate-50 transition-colors">
+                        <tr key={ing.id} className={`${isEditing ? 'bg-yellow-50' : 'hover:bg-slate-50'} transition-colors`}>
                           <td className="border border-slate-300 p-1 text-center font-bold text-slate-500 text-xs bg-slate-50">
                             {index + 1}
                           </td>
                           <td className="border border-slate-300 p-0">
-                            <input 
-                              type="text" 
-                              className="w-full h-full px-2 py-2 text-xs font-medium text-slate-800 outline-none focus:bg-yellow-50 transition-colors"
-                              defaultValue={ing.name}
-                              onBlur={e => handleUpdateRow(ing.id, 'name', e.target.value)}
-                            />
-                          </td>
-                          <td className="border border-slate-300 p-0">
-                            <div className="flex h-full w-full items-center px-2 focus-within:bg-yellow-50">
-                              <span className="text-slate-400 text-[10px]">R$</span>
+                            {isEditing ? (
                               <input 
                                 type="text" 
-                                className="w-full h-full bg-transparent text-right text-xs text-slate-700 outline-none"
-                                defaultValue={pv.toFixed(2)}
-                                onBlur={e => handleUpdateRow(ing.id, 'paid_value', e.target.value)}
+                                className="w-full h-full px-2 py-2 text-xs font-medium text-slate-800 outline-none bg-transparent"
+                                defaultValue={ing.name}
+                                onBlur={e => handleUpdateRow(ing.id, 'name', e.target.value)}
                               />
-                            </div>
+                            ) : (
+                              <div className="w-full h-full px-2 py-2 text-xs font-medium text-slate-800">{ing.name}</div>
+                            )}
                           </td>
-                          <td className="border border-slate-300 p-0">
-                            <input 
-                              type="text" 
-                              className="w-full h-full px-2 text-center text-xs text-slate-700 outline-none focus:bg-yellow-50"
-                              defaultValue={vol}
-                              onBlur={e => handleUpdateRow(ing.id, 'package_volume', e.target.value)}
-                            />
+                          <td className="border border-slate-300 p-0 text-right">
+                            {isEditing ? (
+                              <div className="flex h-full w-full items-center px-2">
+                                <span className="text-slate-400 text-[10px]">R$</span>
+                                <input 
+                                  type="text" 
+                                  className="w-full h-full bg-transparent text-right text-xs text-slate-700 outline-none"
+                                  defaultValue={pv.toFixed(2)}
+                                  onBlur={e => handleUpdateRow(ing.id, 'paid_value', e.target.value)}
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full px-2 py-2 text-xs text-slate-700">R$ {pv.toFixed(2)}</div>
+                            )}
                           </td>
-                          <td className="border border-slate-300 p-0">
-                            <select 
-                              className="w-full h-full px-2 text-center text-xs text-slate-700 outline-none focus:bg-yellow-50 appearance-none bg-transparent cursor-pointer"
-                              value={ing.unit}
-                              onChange={e => handleUpdateRow(ing.id, 'unit', e.target.value)}
-                            >
-                              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                            </select>
+                          <td className="border border-slate-300 p-0 text-center">
+                            {isEditing ? (
+                              <input 
+                                type="text" 
+                                className="w-full h-full px-2 py-2 text-center text-xs text-slate-700 outline-none bg-transparent"
+                                defaultValue={vol}
+                                onBlur={e => handleUpdateRow(ing.id, 'package_volume', e.target.value)}
+                              />
+                            ) : (
+                              <div className="w-full h-full px-2 py-2 text-xs text-slate-700">{vol}</div>
+                            )}
                           </td>
-                          <td className="border border-slate-300 p-0">
-                            <input 
-                              type="text" 
-                              className="w-full h-full px-2 text-center text-xs text-slate-700 outline-none focus:bg-yellow-50"
-                              defaultValue={fc.toFixed(2)}
-                              onBlur={e => handleUpdateRow(ing.id, 'correction_factor', e.target.value)}
-                            />
+                          <td className="border border-slate-300 p-0 text-center">
+                            {isEditing ? (
+                              <select 
+                                className="w-full h-full px-2 py-2 text-center text-xs text-slate-700 outline-none appearance-none bg-transparent cursor-pointer"
+                                value={ing.unit}
+                                onChange={e => handleUpdateRow(ing.id, 'unit', e.target.value)}
+                              >
+                                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                            ) : (
+                              <div className="w-full h-full px-2 py-2 text-xs text-slate-700">{ing.unit}</div>
+                            )}
+                          </td>
+                          <td className="border border-slate-300 p-0 text-center">
+                            {isEditing ? (
+                              <input 
+                                type="text" 
+                                className="w-full h-full px-2 py-2 text-center text-xs text-slate-700 outline-none bg-transparent"
+                                defaultValue={fc.toFixed(2)}
+                                onBlur={e => handleUpdateRow(ing.id, 'correction_factor', e.target.value)}
+                              />
+                            ) : (
+                              <div className="w-full h-full px-2 py-2 text-xs text-slate-700">{fc.toFixed(2)}</div>
+                            )}
                           </td>
                           <td className="border border-slate-300 p-2 text-right bg-slate-50 font-medium">
                             <span className="text-[10px] text-slate-400 mr-1">R$</span>
@@ -820,10 +842,21 @@ export default function AdminConfig() {
                             <span className="text-[10px] text-slate-500 mr-1">R$</span>
                             <span className="text-slate-800 text-xs">{valorLimpo.toFixed(2)}</span>
                           </td>
-                          <td className="border border-slate-300 p-1 text-center bg-white">
-                            <button onClick={() => handleDelete(ing.id)} className="p-1.5 text-slate-400 hover:text-red-600 transition-colors mx-auto block" title="Excluir">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          <td className="border border-slate-300 p-1 bg-white">
+                            <div className="flex items-center justify-center gap-1">
+                              {isEditing ? (
+                                <button onClick={() => setEditingRow(null)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors" title="Concluir Edição">
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <button onClick={() => setEditingRow(ing.id)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Editar">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button onClick={() => handleDelete(ing.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
