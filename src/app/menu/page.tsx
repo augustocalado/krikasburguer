@@ -98,6 +98,8 @@ export default function MenuPage() {
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0)
+  const deliveryFee = settings.delivery_fee_type === 'free' || !settings.delivery_fee_type ? 0 : settings.delivery_fee_type === 'fixed' ? (parseFloat(settings.delivery_fee) || 0) : 0
+  const finalTotal = cartTotal + deliveryFee
 
   const toggleAddon = (groupName: string, option: any) => {
     setSelectedAddons((prev: any) => {
@@ -140,19 +142,25 @@ export default function MenuPage() {
       return `✅ *${item.quantity}x ${item.name}*\n${extras ? extras + '\n' : ''}   R$ ${(item.price * item.quantity).toFixed(2)}`;
     }).join('\n\n');
 
-    let message = `*🍔 NOVO PEDIDO (#${orderId}) - KRIKASBURGUER*\n\n` +
+    const restaurantName = settings.restaurant_name || 'KRIKASBURGUER'
+    let message = `*🍔 NOVO PEDIDO (#${orderId}) - ${restaurantName}*\n\n` +
       `👤 *Cliente:* ${formData.name}\n` +
       `📞 *WhatsApp:* ${formData.phone}\n` +
       `📍 *Endereço:* ${formData.address}\n\n` +
-      `🛒 *Itens:*\n${itemsList}\n\n` +
-      `--------------------------\n` +
+      `🛒 *Itens:*\n${itemsList}\n\n`;
+
+    if (deliveryFee > 0) {
+      message += `🚚 *Taxa de Entrega:* R$ ${deliveryFee.toFixed(2).replace('.', ',')}\n`;
+    }
+
+    message += `--------------------------\n` +
       `💰 *Pagamento:* ${formData.paymentMethod}\n`;
 
     if (formData.paymentMethod === 'Dinheiro' && formData.change) {
       message += `💵 *Troco para:* R$ ${formData.change}\n`;
     }
 
-    message += `🚀 *Total do Pedido:* R$ ${cartTotal.toFixed(2).replace('.', ',')}\n` +
+    message += `🚀 *Total do Pedido:* R$ ${finalTotal.toFixed(2).replace('.', ',')}\n` +
       `--------------------------\n` +
       `⏰ Enviado às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
 
@@ -167,7 +175,8 @@ export default function MenuPage() {
     const existingOrders = JSON.parse(localStorage.getItem('krikas_orders') || '[]');
     localStorage.setItem('krikas_orders', JSON.stringify([newOrder, ...existingOrders]));
 
-    window.open(`https://wa.me/5511999999999?text=${encodeURIComponent(message)}`, '_blank');
+    const phone = settings.whatsapp?.replace(/\D/g, '') || '5511999999999'
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   }
 
   return (
@@ -420,8 +429,13 @@ export default function MenuPage() {
 
                     <div className="space-y-3 pt-6 border-t border-slate-100">
                       <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span>R$ {cartTotal.toFixed(2).replace('.', ',')}</span></div>
-                      <div className="flex justify-between text-sm text-slate-500"><span>Taxa de entrega</span><span className="text-emerald-600 font-bold">Grátis</span></div>
-                      <div className="flex justify-between text-lg font-bold text-slate-900 pt-2"><span>Total</span><span>R$ {cartTotal.toFixed(2).replace('.', ',')}</span></div>
+                      <div className="flex justify-between text-sm text-slate-500">
+                        <span>Taxa de entrega</span>
+                        <span className={deliveryFee > 0 ? 'text-slate-700' : 'text-emerald-600 font-bold'}>
+                          {deliveryFee > 0 ? `R$ ${deliveryFee.toFixed(2).replace('.', ',')}` : 'Grátis'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-lg font-bold text-slate-900 pt-2"><span>Total</span><span>R$ {finalTotal.toFixed(2).replace('.', ',')}</span></div>
                     </div>
 
                     <div className="space-y-4 pt-6">
@@ -478,7 +492,7 @@ export default function MenuPage() {
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Total</span>
-                <span className="text-xl font-bold text-slate-900">R$ {cartTotal.toFixed(2).replace('.', ',')}</span>
+                <span className="text-xl font-bold text-slate-900">R$ {finalTotal.toFixed(2).replace('.', ',')}</span>
               </div>
               <button 
                 onClick={() => setIsCheckoutOpen(true)} 
