@@ -321,23 +321,47 @@ export default function AdminProdutos() {
     }
   }
 
+  function startEditGroup(group: any) {
+    setNewGroupName(group.name)
+    setNewGroupRequired(group.required)
+    setNewGroupMax(group.max)
+    setEditingGroupId(group.id)
+  }
+
+  function cancelEditGroup() {
+    setEditingGroupId(null)
+    setNewGroupName('')
+    setNewGroupRequired(false)
+    setNewGroupMax(1)
+  }
+
   async function handleAddGroup() {
     if (!newGroupName.trim() || !editingProductId) return
-    const { data } = await supabase
-      .from('addon_groups')
-      .insert([{
+    if (editingGroupId) {
+      await supabase.from('addon_groups').update({
         name: newGroupName,
         required: newGroupRequired,
         max: newGroupMax,
-        product_id: editingProductId,
-        sort_order: addonGroups.length
-      }])
-      .select()
-    if (data) {
-      setAddonGroups([...addonGroups, { ...data[0], options: [] }])
-      setNewGroupName('')
-      setNewGroupRequired(false)
-      setNewGroupMax(1)
+      }).eq('id', editingGroupId)
+      setAddonGroups(addonGroups.map(g => g.id === editingGroupId ? { ...g, name: newGroupName, required: newGroupRequired, max: newGroupMax } : g))
+      cancelEditGroup()
+    } else {
+      const { data } = await supabase
+        .from('addon_groups')
+        .insert([{
+          name: newGroupName,
+          required: newGroupRequired,
+          max: newGroupMax,
+          product_id: editingProductId,
+          sort_order: addonGroups.length
+        }])
+        .select()
+      if (data) {
+        setAddonGroups([...addonGroups, { ...data[0], options: [] }])
+        setNewGroupName('')
+        setNewGroupRequired(false)
+        setNewGroupMax(1)
+      }
     }
   }
 
@@ -853,9 +877,14 @@ export default function AdminProdutos() {
                   <div className="space-y-6">
                     <p className="text-sm text-slate-500">Gerencie os grupos de adicionais (ex: "Adicionar Bacon", "Escolher Bebida") e suas opções.</p>
 
-                    {/* Add new group */}
-                    <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                      <h4 className="text-sm font-bold text-slate-800">Novo Grupo de Adicionais</h4>
+                    {/* Add/Edit group */}
+                    <div className={`rounded-xl p-4 space-y-3 ${editingGroupId ? 'bg-blue-50 border border-blue-200' : 'bg-slate-50'}`}>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-slate-800">{editingGroupId ? 'Editar Grupo' : 'Novo Grupo de Adicionais'}</h4>
+                        {editingGroupId && (
+                          <button onClick={cancelEditGroup} className="text-xs text-slate-500 hover:text-slate-700 font-medium">Cancelar edição</button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <input type="text" placeholder="Nome do grupo (ex: Adicionar Bacon)" className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-blue-500 text-slate-900" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} />
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3">
@@ -866,8 +895,9 @@ export default function AdminProdutos() {
                           <label className="text-xs text-slate-600 font-medium whitespace-nowrap">Máx:</label>
                           <input type="number" min="1" max="99" className="w-14 bg-transparent border-none p-2 text-sm outline-none text-slate-900" value={newGroupMax} onChange={e => setNewGroupMax(parseInt(e.target.value) || 1)} />
                         </div>
-                        <button onClick={handleAddGroup} className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                          <Plus className="w-4 h-4" /> Adicionar
+                        <button onClick={handleAddGroup} className={`text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 ${editingGroupId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                          {editingGroupId ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                          {editingGroupId ? 'Salvar' : 'Adicionar'}
                         </button>
                       </div>
                     </div>
@@ -881,17 +911,22 @@ export default function AdminProdutos() {
                       <div className="space-y-4">
                         {addonGroups.map((group, gi) => (
                           <div key={group.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <h4 className="font-bold text-slate-900">{group.name}</h4>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${group.required ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
-                                  {group.required ? 'Obrigatório' : 'Opcional'} · Máx: {group.max}
-                                </span>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <h4 className="font-bold text-slate-900">{group.name}</h4>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${group.required ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                                    {group.required ? 'Obrigatório' : 'Opcional'} · Máx: {group.max}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button onClick={() => startEditGroup(group)} className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Editar grupo">
+                                    <Pencil className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleDeleteGroup(group.id)} className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors" title="Remover grupo">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                              <button onClick={() => handleDeleteGroup(group.id)} className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
 
                             {/* Options */}
                             <div className="pl-4 border-l-2 border-slate-100 space-y-2">
