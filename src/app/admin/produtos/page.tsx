@@ -28,6 +28,13 @@ export default function AdminProdutos() {
   const [importing, setImporting] = useState(false)
   const [importDone, setImportDone] = useState(false)
 
+  const [activeTab, setActiveTab] = useState<'info' | 'adicionais'>('info')
+  const [addonGroups, setAddonGroups] = useState<any[]>([])
+  const [newGroupName, setNewGroupName] = useState('')
+  const [newGroupRequired, setNewGroupRequired] = useState(false)
+  const [newGroupMax, setNewGroupMax] = useState(1)
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -252,7 +259,8 @@ export default function AdminProdutos() {
       price: (prod.price || 0).toString()
     });
     setEditingProductId(prod.id);
-    setShowIngredients(false);
+    setShowIngredients(true);
+    setActiveTab('info');
 
     // Carrega ingredientes já vinculados
     const { data: piData } = await supabase
@@ -271,6 +279,9 @@ export default function AdminProdutos() {
       setSelectedIngredients([])
     }
 
+    // Carrega adicionais
+    await loadAddonGroups(prod.id)
+
     setShowEditModal(true);
   }
 
@@ -279,12 +290,87 @@ export default function AdminProdutos() {
     setProductForm({ name: '', description: '', image_url: '', category_id: '', cost_price: '', price: '' });
     setShowEditModal(false);
     setSelectedIngredients([]);
+    setAddonGroups([]);
+    setActiveTab('info');
   }
 
   async function handleDeleteProduct(id: string) {
     if (!confirm('Tem certeza que deseja apagar este produto?')) return
     await supabase.from('products').delete().eq('id', id)
     setProducts(products.filter(p => p.id !== id))
+  }
+
+  // ==== ADICIONAIS ====
+  async function loadAddonGroups(productId: string) {
+    const { data: groups } = await supabase
+      .from('addon_groups')
+      .select('*')
+      .eq('product_id', productId)
+      .order('sort_order', { ascending: true })
+
+    if (groups) {
+      const groupsWithOptions = await Promise.all(groups.map(async (g) => {
+        const { data: options } = await supabase
+          .from('addon_options')
+          .select('*')
+          .eq('addon_group_id', g.id)
+          .order('sort_order', { ascending: true })
+        return { ...g, options: options || [] }
+      }))
+      setAddonGroups(groupsWithOptions)
+    }
+  }
+
+  async function handleAddGroup() {
+    if (!newGroupName.trim() || !editingProductId) return
+    const { data } = await supabase
+      .from('addon_groups')
+      .insert([{
+        name: newGroupName,
+        required: newGroupRequired,
+        max: newGroupMax,
+        product_id: editingProductId,
+        sort_order: addonGroups.length
+      }])
+      .select()
+    if (data) {
+      setAddonGroups([...addonGroups, { ...data[0], options: [] }])
+      setNewGroupName('')
+      setNewGroupRequired(false)
+      setNewGroupMax(1)
+    }
+  }
+
+  async function handleDeleteGroup(groupId: string) {
+    await supabase.from('addon_groups').delete().eq('id', groupId)
+    setAddonGroups(addonGroups.filter(g => g.id !== groupId))
+  }
+
+  async function handleAddOption(groupIndex: number, optionName: string, optionPrice: string) {
+    const group = addonGroups[groupIndex]
+    if (!optionName.trim() || !group) return
+    const { data } = await supabase
+      .from('addon_options')
+      .insert([{
+        name: optionName,
+        price: parseFloat(optionPrice.replace(',', '.')) || 0,
+        addon_group_id: group.id,
+        sort_order: group.options.length
+      }])
+      .select()
+    if (data) {
+      const updated = [...addonGroups]
+      updated[groupIndex] = { ...group, options: [...group.options, data[0]] }
+      setAddonGroups(updated)
+    }
+  }
+
+  async function handleDeleteOption(groupIndex: number, optionId: string) {
+    const group = addonGroups[groupIndex]
+    await supabase.from('addon_options').delete().eq('id', optionId)
+    const updated = [...addonGroups]
+    updated[groupIndex] = { ...group, options: group.options.filter((o: any) => o.id !== optionId) }
+    setAddonGroups(updated)
   }
 
   const cost = parseFloat(productForm.cost_price.replace(',', '.')) || 0
@@ -605,14 +691,25 @@ export default function AdminProdutos() {
               exit={{ y: 50, opacity: 0 }}
               className="bg-white w-full max-w-3xl h-full md:h-auto md:max-h-[90vh] md:rounded-2xl overflow-hidden flex flex-col relative shadow-2xl"
             >
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-50">
-                <h3 className="text-lg font-bold text-slate-900">Editar Produto</h3>
-                <button onClick={cancelEdit} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
+              <div className="p-6 border-b border-slate-100 bg-white sticky top-0 z-50">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-900">Editar Produto</h3>
+                  <button onClick={cancelEdit} className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+                <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
+                  <button type="button" onClick={() => setActiveTab('info')} className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'info' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Informações
+                  </button>
+                  <button type="button" onClick={() => setActiveTab('adicionais')} className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${activeTab === 'adicionais' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Adicionais {addonGroups.length > 0 && <span className="ml-1 text-xs bg-red-600 text-white px-1.5 py-0.5 rounded-full">{addonGroups.length}</span>}
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6">
+                {activeTab === 'info' ? (
                 <form onSubmit={handleAddProduct} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2 md:col-span-1">
@@ -752,11 +849,102 @@ export default function AdminProdutos() {
                     </button>
                   </div>
                 </form>
+                ) : (
+                  <div className="space-y-6">
+                    <p className="text-sm text-slate-500">Gerencie os grupos de adicionais (ex: "Adicionar Bacon", "Escolher Bebida") e suas opções.</p>
+
+                    {/* Add new group */}
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+                      <h4 className="text-sm font-bold text-slate-800">Novo Grupo de Adicionais</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <input type="text" placeholder="Nome do grupo (ex: Adicionar Bacon)" className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-sm outline-none focus:border-blue-500 text-slate-900" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} />
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3">
+                          <input type="checkbox" id="groupRequired" className="accent-blue-600" checked={newGroupRequired} onChange={e => setNewGroupRequired(e.target.checked)} />
+                          <label htmlFor="groupRequired" className="text-xs text-slate-600 font-medium">Obrigatório</label>
+                        </div>
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3">
+                          <label className="text-xs text-slate-600 font-medium whitespace-nowrap">Máx:</label>
+                          <input type="number" min="1" max="99" className="w-14 bg-transparent border-none p-2 text-sm outline-none text-slate-900" value={newGroupMax} onChange={e => setNewGroupMax(parseInt(e.target.value) || 1)} />
+                        </div>
+                        <button onClick={handleAddGroup} className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
+                          <Plus className="w-4 h-4" /> Adicionar
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Groups list */}
+                    {addonGroups.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 text-sm">
+                        Nenhum grupo de adicionais cadastrado para este produto.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {addonGroups.map((group, gi) => (
+                          <div key={group.id} className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <h4 className="font-bold text-slate-900">{group.name}</h4>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${group.required ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'}`}>
+                                  {group.required ? 'Obrigatório' : 'Opcional'} · Máx: {group.max}
+                                </span>
+                              </div>
+                              <button onClick={() => handleDeleteGroup(group.id)} className="p-1.5 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* Options */}
+                            <div className="pl-4 border-l-2 border-slate-100 space-y-2">
+                              {group.options.map((opt: any) => (
+                                <div key={opt.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-sm text-slate-700">{opt.name}</span>
+                                    <span className="text-xs font-bold text-emerald-600">+ R$ {parseFloat(opt.price).toFixed(2)}</span>
+                                  </div>
+                                  <button onClick={() => handleDeleteOption(gi, opt.id)} className="p-1 text-slate-400 hover:text-red-500 transition-colors">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                              <AddOptionForm onAdd={(name, price) => handleAddOption(gi, name, price)} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+function AddOptionForm({ onAdd }: { onAdd: (name: string, price: string) => void }) {
+  const [name, setName] = useState('')
+  const [price, setPrice] = useState('')
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    onAdd(name, price || '0')
+    setName('')
+    setPrice('')
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center gap-2 mt-2">
+      <input type="text" placeholder="Opção (ex: Bacon)" className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 text-slate-900" value={name} onChange={e => setName(e.target.value)} />
+      <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+        <span className="text-xs text-slate-400">R$</span>
+        <input type="text" placeholder="0,00" className="w-16 bg-transparent border-none text-sm outline-none text-slate-900" value={price} onChange={e => setPrice(e.target.value)} />
+      </div>
+      <button type="submit" className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors whitespace-nowrap">
+        + Add
+      </button>
+    </form>
   )
 }

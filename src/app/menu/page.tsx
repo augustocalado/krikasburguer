@@ -18,6 +18,7 @@ export default function MenuPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false)
   const [itemQuantity, setItemQuantity] = useState(1)
   const [selectedAddons, setSelectedAddons] = useState<any>({})
+  const [productAddonGroups, setProductAddonGroups] = useState<any[]>([])
   const [formData, setFormData] = useState({ name: '', address: '', phone: '', paymentMethod: 'Pix', change: '' })
 
   useEffect(() => {
@@ -66,6 +67,34 @@ export default function MenuPage() {
     }
     loadMenu()
   }, [])
+
+  // Load addon groups when a product is selected
+  useEffect(() => {
+    if (!selectedProduct) { setProductAddonGroups([]); return }
+    async function loadAddons() {
+      const supabase = createClient()
+      const { data: groups } = await supabase
+        .from('addon_groups')
+        .select('*')
+        .eq('product_id', selectedProduct.id)
+        .order('sort_order', { ascending: true })
+
+      if (groups) {
+        const groupsWithOptions = await Promise.all(groups.map(async (g) => {
+          const { data: options } = await supabase
+            .from('addon_options')
+            .select('*')
+            .eq('addon_group_id', g.id)
+            .order('sort_order', { ascending: true })
+          return { ...g, options: options || [] }
+        }))
+        setProductAddonGroups(groupsWithOptions)
+      }
+    }
+    loadAddons()
+    setItemQuantity(1)
+    setSelectedAddons({})
+  }, [selectedProduct])
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0)
@@ -261,7 +290,7 @@ export default function MenuPage() {
               initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
               className="bg-white w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] md:rounded-xl overflow-hidden flex flex-col md:flex-row relative shadow-2xl"
             >
-              <button onClick={() => setSelectedProduct(null)} className="absolute top-4 right-4 z-50 bg-white p-2 rounded-full shadow-lg">
+              <button onClick={() => { setSelectedProduct(null); setItemQuantity(1); setSelectedAddons({}) }} className="absolute top-4 right-4 z-50 bg-white p-2 rounded-full shadow-lg">
                 <X className="w-5 h-5 text-slate-900" />
               </button>
 
@@ -281,7 +310,7 @@ export default function MenuPage() {
                     <div className="text-xl font-bold text-slate-900 mt-4">R$ {selectedProduct.price.toFixed(2).replace('.', ',')}</div>
                   </div>
 
-                  {selectedProduct.addonGroups?.map((group: any) => (
+                  {productAddonGroups.map((group: any) => (
                     <div key={group.name}>
                       <div className="bg-slate-50 px-8 py-3 border-y border-slate-100 flex justify-between items-center -mx-8">
                         <div className="flex flex-col">
