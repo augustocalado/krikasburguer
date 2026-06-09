@@ -389,6 +389,21 @@ export default function AdminProdutos() {
     }
   }
 
+  async function handleUpdateOption(groupIndex: number, optionId: string, name: string, price: string) {
+    const group = addonGroups[groupIndex]
+    if (!name.trim()) return
+    await supabase.from('addon_options').update({
+      name,
+      price: parseFloat(price.replace(',', '.')) || 0
+    }).eq('id', optionId)
+    const updated = [...addonGroups]
+    updated[groupIndex] = {
+      ...group,
+      options: group.options.map((o: any) => o.id === optionId ? { ...o, name, price: parseFloat(price.replace(',', '.')) || 0 } : o)
+    }
+    setAddonGroups(updated)
+  }
+
   async function handleDeleteOption(groupIndex: number, optionId: string) {
     const group = addonGroups[groupIndex]
     await supabase.from('addon_options').delete().eq('id', optionId)
@@ -931,15 +946,12 @@ export default function AdminProdutos() {
                             {/* Options */}
                             <div className="pl-4 border-l-2 border-slate-100 space-y-2">
                               {group.options.map((opt: any) => (
-                                <div key={opt.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-sm text-slate-700">{opt.name}</span>
-                                    <span className="text-xs font-bold text-emerald-600">+ R$ {parseFloat(opt.price).toFixed(2)}</span>
-                                  </div>
-                                  <button onClick={() => handleDeleteOption(gi, opt.id)} className="p-1 text-slate-400 hover:text-red-500 transition-colors">
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                                <OptionRow
+                                  key={opt.id}
+                                  option={opt}
+                                  onUpdate={(name, price) => handleUpdateOption(gi, opt.id, name, price)}
+                                  onDelete={() => handleDeleteOption(gi, opt.id)}
+                                />
                               ))}
                               <AddOptionForm onAdd={(name, price) => handleAddOption(gi, name, price)} />
                             </div>
@@ -954,6 +966,49 @@ export default function AdminProdutos() {
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  )
+}
+
+function OptionRow({ option, onUpdate, onDelete }: { option: any; onUpdate: (name: string, price: string) => void; onDelete: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(option.name)
+  const [price, setPrice] = useState(parseFloat(option.price).toFixed(2))
+
+  function handleSave() {
+    if (!name.trim()) return
+    onUpdate(name, price)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
+        <input type="text" className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm outline-none focus:border-blue-500 text-slate-900" value={name} onChange={e => setName(e.target.value)} />
+        <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1">
+          <span className="text-xs text-slate-400">R$</span>
+          <input type="text" className="w-14 bg-transparent border-none text-sm outline-none text-slate-900" value={price} onChange={e => setPrice(e.target.value)} />
+        </div>
+        <button onClick={handleSave} className="bg-emerald-600 text-white px-2.5 py-1 rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors">Salvar</button>
+        <button onClick={() => setEditing(false)} className="text-xs text-slate-500 font-medium hover:text-slate-700">Cancelar</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-slate-700">{option.name}</span>
+        <span className="text-xs font-bold text-emerald-600">+ R$ {parseFloat(option.price).toFixed(2)}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <button onClick={() => { setName(option.name); setPrice(parseFloat(option.price).toFixed(2)); setEditing(true) }} className="p-1 text-slate-400 hover:text-blue-600 transition-colors" title="Editar opção">
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={onDelete} className="p-1 text-slate-400 hover:text-red-500 transition-colors" title="Remover opção">
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   )
 }
