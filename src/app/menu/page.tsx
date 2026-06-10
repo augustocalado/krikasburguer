@@ -99,7 +99,7 @@ export default function MenuPage() {
   const cartTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0)
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0)
   const deliveryFee = settings.delivery_fee_type === 'free' || !settings.delivery_fee_type ? 0 : settings.delivery_fee_type === 'fixed' ? (parseFloat(settings.delivery_fee) || 0) : 0
-  const finalTotal = cartTotal + deliveryFee
+  const finalTotal = (cartTotal + deliveryFee) || 0
 
   const toggleAddon = (groupName: string, option: any) => {
     setSelectedAddons((prev: any) => {
@@ -175,8 +175,9 @@ export default function MenuPage() {
     const existingOrders = JSON.parse(localStorage.getItem('krikas_orders') || '[]');
     localStorage.setItem('krikas_orders', JSON.stringify([newOrder, ...existingOrders]));
 
-    const phone = settings.whatsapp?.replace(/\D/g, '') || '5511999999999'
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    const phone = settings.whatsapp?.replace(/\D/g, '')
+    if (!phone) { alert('Número do WhatsApp não configurado! Acesse Admin > Config > Restaurante.'); return }
+    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }
 
   return (
