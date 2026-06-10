@@ -134,6 +134,11 @@ export default function MenuPage() {
   }
 
   const sendToWhatsApp = () => {
+    try {
+    console.log('sendToWhatsApp called', { cart, formData, settings, deliveryFee, finalTotal })
+    if (!formData.name.trim()) { alert('Preencha seu nome!'); return }
+    if (!formData.phone.trim()) { alert('Preencha seu WhatsApp!'); return }
+    if (!formData.address.trim()) { alert('Preencha seu endereço!'); return }
     const orderId = Math.floor(1000 + Math.random() * 9000).toString();
     const itemsList = cart.map(item => {
       const extras = Object.entries(item.extras || {})
@@ -177,7 +182,10 @@ export default function MenuPage() {
 
     const phone = settings.whatsapp?.replace(/\D/g, '')
     if (!phone) { alert('Número do WhatsApp não configurado! Acesse Admin > Config > Restaurante.'); return }
+    setCart([])
+    setIsCheckoutOpen(false)
     window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    } catch (e) { console.error('Erro ao enviar pedido:', e); alert('Erro ao enviar pedido: ' + e) }
   }
 
   return (
