@@ -179,11 +179,13 @@ export default function MenuPage() {
     };
     const existingOrders = JSON.parse(localStorage.getItem('krikas_orders') || '[]');
     localStorage.setItem('krikas_orders', JSON.stringify([newOrder, ...existingOrders]));
+    console.log('Pedido salvo:', newOrder, 'Total de pedidos:', existingOrders.length + 1)
 
     const phone = settings.whatsapp?.replace(/\D/g, '')
     if (!phone) { alert('Número do WhatsApp não configurado! Acesse Admin > Config > Restaurante.'); return }
     setCart([])
     setIsCheckoutOpen(false)
+    alert(`Pedido #${orderId} confirmado! Vamos abrir o WhatsApp para enviar.`)
     window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     } catch (e) { console.error('Erro ao enviar pedido:', e); alert('Erro ao enviar pedido: ' + e) }
   }
